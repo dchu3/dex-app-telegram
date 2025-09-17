@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+import os
+import argparse
+from typing import NamedTuple
+import constants
+
+class AppConfig(NamedTuple):
+    """Typed configuration object."""
+    chains: list[str]
+    tokens: list[str]
+    dex_fee: float
+    slippage: float
+    min_bullish_profit: float
+    min_bearish_discrepancy: float
+    min_momentum_score_bullish: float
+    min_momentum_score_bearish: float
+    trade_volume: float
+    min_liquidity: float
+    min_volume: float
+    min_txns_h1: int
+    interval: int
+    telegram_enabled: bool
+    alert_cooldown: int
+    etherscan_api_key: str
+    telegram_bot_token: str | None
+    telegram_chat_id: str | None
+    coingecko_api_key: str | None
+    gemini_api_key: str | None
+    twitter_enabled: bool
+    twitter_api_key: str | None
+    twitter_api_secret: str | None
+    twitter_access_token: str | None
+    twitter_access_token_secret: str | None
+    multi_leg: bool
+    max_cycle_length: int
+    max_depth: int
+    scanner_enabled: bool
+
+
+def load_config() -> AppConfig:
+    """
+    Parses command-line arguments and loads environment variables to create a configuration object.
+    """
+    parser = argparse.ArgumentParser(
+        description="Find potential arbitrage opportunities for multiple tokens on multiple DEXs and chains.",
+        epilog="Example: ./main.py --chain polygon ethereum --token WMATIC --min-profit 1.00"
+    )
+    # --- Existing Arguments ---
+    parser.add_argument('--chain', required=True, nargs='+', choices=constants.CHAIN_CONFIG.keys(), help='One or more blockchains to scan.')
+    parser.add_argument('--token', required=True, nargs='+', help='One or more token symbols to search for.')
+    parser.add_argument('--dex-fee', type=float, default=0.3, help='DEX fee percentage (default: 0.3).')
+    parser.add_argument('--slippage', type=float, default=0.5, help='Slippage tolerance percentage (default: 0.5).')
+    parser.add_argument('--min-bullish-profit', type=float, default=0.0, help='Minimum net profit in USD for a bullish signal (default: 0.0).')
+    parser.add_argument('--min-bearish-discrepancy', type=float, default=1.0, help='Minimum price discrepancy percentage for a bearish signal (default: 1.0).')
+    parser.add_argument('--min-momentum-score-bullish', type=float, default=0.0, help='Minimum momentum score (0-10) required to trigger a bullish alert (default: 0.0).')
+    parser.add_argument('--min-momentum-score-bearish', type=float, default=0.0, help='Minimum momentum score (0-10) required to trigger a bearish alert (default: 0.0).')
+    parser.add_argument('--trade-volume', type=float, default=500.0, help='Trade volume in USD for estimates (default: 500).')
+    parser.add_argument('--min-liquidity', type=float, default=1000.0, help='Min USD liquidity per pair (default: 1000).')
+    parser.add_argument('--min-volume', type=float, default=1000.0, help='Min 24h volume USD per pair (default: 1000).')
+    parser.add_argument('--min-txns-h1', type=int, default=1, help='Min txns (buys + sells) in the last hour (default: 1).')
+    parser.add_argument('--interval', type=int, default=60, help='Seconds to wait between each scan (default: 60).')
+    parser.add_argument('--telegram-enabled', action='store_true', help='Enable Telegram notifications.')
+    parser.add_argument('--twitter-enabled', action='store_true', help='Enable Twitter notifications.')
+    parser.add_argument('--alert-cooldown', type=int, default=3600, help='Cooldown in seconds before re-alerting for the same opportunity (default: 3600).')
+    parser.add_argument('--scanner-enabled', action='store_true', help='Enable the background arbitrage scanner.')
+
+    # --- Multi-Leg Arguments ---
+    parser.add_argument('--multi-leg', action='store_true', help='Enable multi-leg (triangular) arbitrage scanning.')
+    parser.add_argument('--max-cycle-length', type=int, default=3, help='Max swaps in a multi-leg cycle (default: 3).')
+    parser.add_argument('--max-depth', type=int, default=2, help='Max recursion depth for finding token pairs (default: 2).')
+
+    args = parser.parse_args()
+
+    # Load from environment
+    etherscan_api_key = os.environ.get(constants.ETHERSCAN_API_KEY_ENV_VAR)
+    telegram_bot_token = os.environ.get(constants.TELEGRAM_BOT_TOKEN_ENV_VAR)
+    telegram_chat_id = os.environ.get(constants.TELEGRAM_CHAT_ID_ENV_VAR)
+    coingecko_api_key = os.environ.get(constants.COINGECKO_API_KEY_ENV_VAR)
+    gemini_api_key = os.environ.get("GEMINI_API_KEY")
+    twitter_api_key = os.environ.get(constants.TWITTER_API_KEY_ENV_VAR)
+    twitter_api_secret = os.environ.get(constants.TWITTER_API_SECRET_ENV_VAR)
+    twitter_access_token = os.environ.get(constants.TWITTER_ACCESS_TOKEN_ENV_VAR)
+    twitter_access_token_secret = os.environ.get(constants.TWITTER_ACCESS_TOKEN_SECRET_ENV_VAR)
+
+    if not etherscan_api_key:
+        print(f"{constants.C_RED}{constants.ETHERSCAN_API_KEY_ENV_VAR} environment variable not set. Get it from https://etherscan.io/apis{constants.C_RESET}")
+        exit(1)
+
+    if args.telegram_enabled and not (telegram_bot_token and telegram_chat_id):
+        print(f"{constants.C_RED}Telegram is enabled, but {constants.TELEGRAM_BOT_TOKEN_ENV_VAR} or {constants.TELEGRAM_CHAT_ID_ENV_VAR} are not set.{constants.C_RESET}")
+        exit(1)
+
+    if args.twitter_enabled and not (twitter_api_key and twitter_api_secret and twitter_access_token and twitter_access_token_secret):
+        print(f"{constants.C_RED}Twitter is enabled, but one or more Twitter API environment variables are not set.{constants.C_RESET}")
+        exit(1)
+
+    return AppConfig(
+        chains=args.chain,
+        tokens=args.token,
+        dex_fee=args.dex_fee,
+        slippage=args.slippage,
+        min_bullish_profit=args.min_bullish_profit,
+        min_bearish_discrepancy=args.min_bearish_discrepancy,
+        min_momentum_score_bullish=args.min_momentum_score_bullish,
+        min_momentum_score_bearish=args.min_momentum_score_bearish,
+        trade_volume=args.trade_volume,
+        min_liquidity=args.min_liquidity,
+        min_volume=args.min_volume,
+        min_txns_h1=args.min_txns_h1,
+        interval=args.interval,
+        telegram_enabled=args.telegram_enabled,
+        twitter_enabled=args.twitter_enabled,
+        alert_cooldown=args.alert_cooldown,
+        etherscan_api_key=etherscan_api_key,
+        telegram_bot_token=telegram_bot_token,
+        telegram_chat_id=telegram_chat_id,
+        coingecko_api_key=coingecko_api_key,
+        gemini_api_key=gemini_api_key,
+        twitter_api_key=twitter_api_key,
+        twitter_api_secret=twitter_api_secret,
+        twitter_access_token=twitter_access_token,
+        twitter_access_token_secret=twitter_access_token_secret,
+        multi_leg=args.multi_leg,
+        max_cycle_length=args.max_cycle_length,
+        max_depth=args.max_depth,
+        scanner_enabled=args.scanner_enabled,
+    )
