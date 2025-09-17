@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import asyncio
+import os
 import time
 from typing import Optional, Dict, List
 
 import aiohttp
-from constants import (COINGECKO_API_BASE_URL, C_RED, C_RESET)
+from constants import (COINGECKO_API_BASE_URL, COINGECKO_API_KEY_ENV_VAR, C_RED, C_RESET)
 from momentum_indicator import calculate_rsi
 
 def log_error(message: str) -> None:
@@ -26,7 +27,7 @@ async def api_get(url: str, session: aiohttp.ClientSession, params: Optional[Dic
                 return None
 
 class CoinGeckoClient:
-    def __init__(self, session: aiohttp.ClientSession, api_key: Optional[str] = "CG-bDTH1SwCmviME5wsJrfDacYk"):
+    def __init__(self, session: aiohttp.ClientSession, api_key: Optional[str] = None):
         self.session = session
         self.api_key = api_key
         self.headers = {'x-cg-demo-api-key': self.api_key} if self.api_key else {}
@@ -102,7 +103,8 @@ class CoinGeckoClient:
 async def main():
     try:
         async with aiohttp.ClientSession() as session:
-            client = CoinGeckoClient(session, api_key="CG-bDTH1SwCmviME5wsJrfDacYk")
+            api_key = os.environ.get(COINGECKO_API_KEY_ENV_VAR)
+            client = CoinGeckoClient(session, api_key=api_key)
 
             print("--- Testing get_trending_coins ---")
             trending_coins = await client.get_trending_coins()
