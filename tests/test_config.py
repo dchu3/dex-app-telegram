@@ -42,6 +42,7 @@ def test_min_momentum_score_bullish_parsing(monkeypatch):
         max_cycle_length=3,
         max_depth=2,
         scanner_enabled=True,
+        disable_ai_analysis=False,
     ))
     config = load_config()
     assert config.min_momentum_score_bullish == 5.5
@@ -75,6 +76,7 @@ def test_min_momentum_score_default_values(monkeypatch):
         max_cycle_length=3,
         max_depth=2,
         scanner_enabled=True,
+        disable_ai_analysis=False,
     ))
     config = load_config()
     assert config.min_momentum_score_bullish == 0.0

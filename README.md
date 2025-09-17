@@ -16,7 +16,7 @@ When a significant signal is detected, the bot sends a Telegram alert containing
     - **AI Thesis:** A concise summary of the signal.
     - **Market Sentiment:** An analysis of the current market sentiment for the token.
     - **Key Drivers:** Factors driving the price discrepancy and momentum.
-    - **Potential Risks:** Potential risks associated with the signal.
+    - **Potential Risks:** Potential risks associated with the signal. This AI step can be disabled at runtime with `--disable-ai-analysis` or by setting `AI_ANALYSIS_ENABLED=0`.
 - **Quantitative Momentum Score:** Calculates a momentum score (0-10) for each signal based on:
     - **Volume Divergence:** The ratio of 24h trading volume between the two DEXs.
     - **Signal Persistence:** How many times the same opportunity has been detected recently.
@@ -91,6 +91,7 @@ pip install -r requirements.txt
 4.  **Gemini API Key (Recommended for AI Analysis):**
     -   Obtain a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
     -   Set it as an environment variable: `export GEMINI_API_KEY='YourGeminiApiKeyHere'`
+    -   To temporarily suspend AI output, either export `AI_ANALYSIS_ENABLED=0` or pass `--disable-ai-analysis` when launching the bot.
 
 5.  **Twitter API Keys (Optional):**
     -   To enable posting signals to Twitter, you need a Twitter Developer account with a project and an app.
@@ -134,6 +135,7 @@ python main.py --chain base --token AERO --telegram-enabled --scanner-enabled
 -   `--twitter-enabled`: Enable Twitter notifications.
 -   `--alert-cooldown`: Cooldown in seconds before re-alerting for the same opportunity (default: 3600).
 -   `--scanner-enabled`: Enable the background arbitrage scanner.
+-   `--disable-ai-analysis`: Skip Gemini calls and omit AI-generated content from alerts and tweets.
 -   `--multi-leg`: Enable multi-leg (triangular) arbitrage scanning.
 -   `--max-cycle-length`: Max swaps in a multi-leg cycle (default: 3).
 -   `--max-depth`: Max recursion depth for finding token pairs (default: 2).

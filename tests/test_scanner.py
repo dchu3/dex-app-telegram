@@ -28,6 +28,7 @@ def mock_config():
         telegram_chat_id='mock_chat_id',
         coingecko_api_key=None,
         gemini_api_key=None,
+        ai_analysis_enabled=True,
         twitter_api_key=None,
         twitter_api_secret=None,
         twitter_access_token=None,
@@ -217,3 +218,47 @@ async def test_telegram_notification_bearish_sufficient_momentum_sent(
 
     # Assert that send_message was called
     mock_application.bot.send_message.assert_called_once()
+
+@pytest.mark.asyncio
+@patch('scanner.calculate_momentum_score')
+async def test_ai_analysis_disabled_skips_generation(
+    mock_calculate_momentum_score, scanner, mock_application
+):
+    mock_calculate_momentum_score.return_value = (5.0, {})
+
+    scanner.config = scanner.config._replace(ai_analysis_enabled=False)
+    scanner.gemini_client.generate_token_analysis = AsyncMock()
+
+    opp = ArbitrageOpportunity(
+        pair_name='WETH/USDC',
+        chain_name='ethereum',
+        buy_dex='Uniswap',
+        sell_dex='Sushiswap',
+        buy_price=1000,
+        sell_price=1010,
+        gross_profit_usd=10,
+        net_profit_usd=5,
+        gross_diff_pct=1.0,
+        effective_volume=100.0,
+        gas_cost_usd=0.0,
+        dex_fee_cost=0.0,
+        slippage_cost=0.0,
+        gas_price_gwei=0.0,
+        base_token_address='0xmockaddress',
+        direction='BULLISH',
+        buy_dex_volume_usd=10000,
+        sell_dex_volume_usd=10000,
+        dominant_is_buy_side=True,
+    )
+
+    with patch.object(scanner, '_resolve_dex_name', new_callable=AsyncMock) as mock_resolve_dex_name:
+        mock_resolve_dex_name.return_value = 'MockDex'
+        await scanner._send_telegram_notification(opp)
+
+    scanner.gemini_client.generate_token_analysis.assert_not_awaited()
+    mock_application.bot.send_message.assert_called_once()
+    message_text = mock_application.bot.send_message.call_args.kwargs['text']
+    assert 'AI analysis disabled by configuration.' in message_text
+    assert 'AI-Generated Analysis' not in message_text
+    assert 'AI-generated' not in message_text
+

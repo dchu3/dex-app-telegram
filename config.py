@@ -26,6 +26,7 @@ class AppConfig(NamedTuple):
     telegram_chat_id: str | None
     coingecko_api_key: str | None
     gemini_api_key: str | None
+    ai_analysis_enabled: bool
     twitter_enabled: bool
     twitter_api_key: str | None
     twitter_api_secret: str | None
@@ -63,6 +64,7 @@ def load_config() -> AppConfig:
     parser.add_argument('--twitter-enabled', action='store_true', help='Enable Twitter notifications.')
     parser.add_argument('--alert-cooldown', type=int, default=3600, help='Cooldown in seconds before re-alerting for the same opportunity (default: 3600).')
     parser.add_argument('--scanner-enabled', action='store_true', help='Enable the background arbitrage scanner.')
+    parser.add_argument('--disable-ai-analysis', action='store_true', help='Disable AI-generated analysis for alerts and social posts.')
 
     # --- Multi-Leg Arguments ---
     parser.add_argument('--multi-leg', action='store_true', help='Enable multi-leg (triangular) arbitrage scanning.')
@@ -81,6 +83,11 @@ def load_config() -> AppConfig:
     twitter_api_secret = os.environ.get(constants.TWITTER_API_SECRET_ENV_VAR)
     twitter_access_token = os.environ.get(constants.TWITTER_ACCESS_TOKEN_ENV_VAR)
     twitter_access_token_secret = os.environ.get(constants.TWITTER_ACCESS_TOKEN_SECRET_ENV_VAR)
+
+    ai_analysis_env = os.environ.get(constants.AI_ANALYSIS_ENABLED_ENV_VAR)
+    ai_analysis_enabled = not args.disable_ai_analysis
+    if ai_analysis_env is not None:
+        ai_analysis_enabled = ai_analysis_env.lower() not in {"0", "false", "no", "off"}
 
     if not etherscan_api_key:
         print(f"{constants.C_RED}{constants.ETHERSCAN_API_KEY_ENV_VAR} environment variable not set. Get it from https://etherscan.io/apis{constants.C_RESET}")
@@ -116,6 +123,7 @@ def load_config() -> AppConfig:
         telegram_chat_id=telegram_chat_id,
         coingecko_api_key=coingecko_api_key,
         gemini_api_key=gemini_api_key,
+        ai_analysis_enabled=ai_analysis_enabled,
         twitter_api_key=twitter_api_key,
         twitter_api_secret=twitter_api_secret,
         twitter_access_token=twitter_access_token,
