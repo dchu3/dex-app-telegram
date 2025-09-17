@@ -35,7 +35,7 @@ class ArbitrageScanner:
         etherscan_client: EtherscanClient,
         coingecko_client: CoinGeckoClient,
         blockscout_client: "BlockscoutClient",
-        gemini_client: "GeminiClient",
+        gemini_client: Optional["GeminiClient"],
         twitter_client: Optional["TwitterClient"],
     ):
         self.config = config
@@ -395,26 +395,29 @@ class ArbitrageScanner:
                 print(f"{C_YELLOW}Skipping BEARISH signal for {opp.pair_name} due to low momentum score ({momentum_score:.1f} < {self.config.min_momentum_score_bearish:.1f}).{C_RESET}")
                 return
 
-            ai_analysis = "No AI analysis available."
-            if self.gemini_client and self.config.gemini_api_key:
-                try:
-                    opportunity_data = {
-                        "direction": opp.direction,
-                        "symbol": token_symbol,
-                        "profit_percentage": opp.gross_diff_pct,
-                        "momentum_score": momentum_score,
-                        "current_price": opp.sell_price if opp.direction == 'BULLISH' else opp.buy_price,
-                        "buy_dex": low_price_dex_name,
-                        "sell_dex": high_price_dex_name,
-                        "buy_price": opp.buy_price,
-                        "sell_price": opp.sell_price,
-                    }
-                    ai_analysis = await self.gemini_client.generate_token_analysis(opportunity_data)
-                except Exception as e:
-                    print(f"{C_RED}Error generating Gemini analysis: {e}{C_RESET}")
-                    ai_analysis = "AI analysis failed to generate."
+            if not self.config.ai_analysis_enabled:
+                ai_analysis = "AI analysis disabled by configuration."
+            else:
+                ai_analysis = "AI analysis unavailable."
+                if self.gemini_client and self.config.gemini_api_key:
+                    try:
+                        opportunity_data = {
+                            "direction": opp.direction,
+                            "symbol": token_symbol,
+                            "profit_percentage": opp.gross_diff_pct,
+                            "momentum_score": momentum_score,
+                            "current_price": opp.sell_price if opp.direction == 'BULLISH' else opp.buy_price,
+                            "buy_dex": low_price_dex_name,
+                            "sell_dex": high_price_dex_name,
+                            "buy_price": opp.buy_price,
+                            "sell_price": opp.sell_price,
+                        }
+                        ai_analysis = await self.gemini_client.generate_token_analysis(opportunity_data)
+                    except Exception as e:
+                        print(f"{C_RED}Error generating Gemini analysis: {e}{C_RESET}")
+                        ai_analysis = "AI analysis failed to generate."
 
-            message = self.format_signal_message(opp, ai_analysis, momentum_score, low_price_dex_name, high_price_dex_name)
+            message = self.format_signal_message(opp, ai_analysis, momentum_score, low_price_dex_name, high_price_dex_name, self.config.ai_analysis_enabled)
             
             await self.bot.send_message(
                 chat_id=self.config.telegram_chat_id,
@@ -425,21 +428,26 @@ class ArbitrageScanner:
 
             # --- Twitter Integration ---
             if self.config.twitter_enabled and self.twitter_client:
-                try:
-                    print(f"{C_BLUE}Generating tweet...{C_RESET}")
-                    tweet_text = await self.gemini_client.generate_tweet_from_analysis(
-                        full_analysis=ai_analysis,
-                        token=token_symbol,
-                        chain=opp.chain_name.capitalize(),
-                        momentum_score=momentum_score
-                    )
-                    if "Tweet could not be generated" not in tweet_text:
-                        print(f"{C_GREEN}Posting tweet: {tweet_text}{C_RESET}")
-                        self.twitter_client.post_tweet(tweet_text)
-                    else:
-                        print(f"{C_YELLOW}Skipping tweet post due to generation error.{C_RESET}")
-                except Exception as e:
-                    print(f"{C_RED}Error during Twitter processing: {e}{C_RESET}")
+                if not self.config.ai_analysis_enabled:
+                    print(f"{C_YELLOW}AI analysis disabled; skipping tweet generation.{C_RESET}")
+                elif not self.gemini_client or not self.config.gemini_api_key:
+                    print(f"{C_YELLOW}Gemini client unavailable; skipping tweet generation.{C_RESET}")
+                else:
+                    try:
+                        print(f"{C_BLUE}Generating tweet...{C_RESET}")
+                        tweet_text = await self.gemini_client.generate_tweet_from_analysis(
+                            full_analysis=ai_analysis,
+                            token=token_symbol,
+                            chain=opp.chain_name.capitalize(),
+                            momentum_score=momentum_score
+                        )
+                        if "Tweet could not be generated" not in tweet_text:
+                            print(f"{C_GREEN}Posting tweet: {tweet_text}{C_RESET}")
+                            self.twitter_client.post_tweet(tweet_text)
+                        else:
+                            print(f"{C_YELLOW}Skipping tweet post due to generation error.{C_RESET}")
+                    except Exception as e:
+                        print(f"{C_RED}Error during Twitter processing: {e}{C_RESET}")
 
         else:
             print(f"{C_YELLOW}Skipping notification for {opp.pair_name} (cooldown).{C_RESET}")
@@ -463,12 +471,18 @@ class ArbitrageScanner:
 
     def format_signal_message(
         self, opp: ArbitrageOpportunity, ai_analysis: str, momentum_score: float, 
-        buy_dex_name: str, sell_dex_name: str
+        buy_dex_name: str, sell_dex_name: str, analysis_enabled: bool
     ) -> str:
-        """Formats a momentum signal into a Telegram message with the structured AI analysis."""
+        """Formats a momentum signal into a Telegram message with optional AI analysis content."""
         
         token_symbol = opp.pair_name.split('/')[0]
         direction_emoji = "📈" if opp.direction == "BULLISH" else "📉"
+        analysis_heading = "<b><u>AI-Generated Analysis:</u></b>" if analysis_enabled else "<b><u>Analysis:</u></b>"
+        disclaimer = (
+            "<i>Disclaimer: This is not financial advice. The analysis is AI-generated.</i>"
+            if analysis_enabled
+            else "<i>Disclaimer: This is not financial advice.</i>"
+        )
         
         message = (
             f"{direction_emoji} <b>{opp.direction.capitalize()} Momentum Signal: {token_symbol.upper()} on {opp.chain_name.capitalize()}</b>\n\n"
@@ -478,8 +492,8 @@ class ArbitrageScanner:
             f"- <b>Momentum Score:</b> <code>{momentum_score:.1f}/10</code>\n"
             f"- <b>Buy Exchange:</b> <code>{buy_dex_name}</code> (Price: ${opp.buy_price:.6f})\n"
             f"- <b>Sell Exchange:</b> <code>{sell_dex_name}</code> (Price: ${opp.sell_price:.6f})\n\n"
-            f"<b><u>AI-Generated Analysis:</u></b>\n"
+            f"{analysis_heading}\n"
             f"<pre>{ai_analysis}</pre>\n\n"
-            f"<i>Disclaimer: This is not financial advice. The analysis is AI-generated.</i>"
+            f"{disclaimer}"
         )
         return message

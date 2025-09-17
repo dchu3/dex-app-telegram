@@ -29,6 +29,7 @@ def config():
         telegram_chat_id=None,
         coingecko_api_key=None,
         gemini_api_key=None,
+        ai_analysis_enabled=True,
         twitter_enabled=False,
         twitter_api_key=None,
         twitter_api_secret=None,

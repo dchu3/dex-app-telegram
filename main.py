@@ -34,7 +34,10 @@ async def post_init_hook(application: Application) -> None:
     application.bot_data['dexscreener_client'] = DexScreenerClient(session, coingecko_client)
     application.bot_data['etherscan_client'] = EtherscanClient(session, config.etherscan_api_key)
     application.bot_data['blockscout_client'] = BlockscoutClient(session)
-    application.bot_data['gemini_client'] = GeminiClient(session, config.gemini_api_key)
+    gemini_client = None
+    if config.ai_analysis_enabled and config.gemini_api_key:
+        gemini_client = GeminiClient(session, config.gemini_api_key)
+    application.bot_data['gemini_client'] = gemini_client
 
     # Initialize Twitter client if enabled
     twitter_client = None
