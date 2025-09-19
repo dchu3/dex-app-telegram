@@ -20,6 +20,7 @@ def mock_config():
         min_volume=1000.0,
         min_txns_h1=1,
         interval=60,
+        min_profit=0.0,
         telegram_enabled=True,
         twitter_enabled=False,
         alert_cooldown=0, # Disable cooldown for testing
@@ -261,4 +262,3 @@ async def test_ai_analysis_disabled_skips_generation(
     assert 'AI analysis disabled by configuration.' in message_text
     assert 'AI-Generated Analysis' not in message_text
     assert 'AI-generated' not in message_text
-

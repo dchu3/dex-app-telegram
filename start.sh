@@ -21,4 +21,21 @@ source venv/bin/activate
 
 # Run the bot with default options
 echo "🚀 Starting DEX Momentum Signal Bot..."
-python main.py --chain base --disable-ai-analysis --telegram-enabled --scanner-enabled --min-momentum-score-bullish 3.0 --min-momentum-score-bearish 3.0 --min-bullish-profit 1.0 --min-liquidity 400000 --min-volume 50000 --min-txns-h1 3 --interval 15 --token BRETT ZORA VIRTUAL AERO AVNT AAVE
+python main.py \
+  --chain base \
+  --token BRETT ZORA VIRTUAL AERO AVNT AAVE \
+  --multi-leg \
+  --max-cycle-length 3 \
+  --max-depth 1 \
+  --scanner-enabled \
+  --telegram-enabled \
+  --trade-volume 1500 \
+  --dex-fee 0.3 \
+  --slippage 0.4 \
+  --min-liquidity 750000 \
+  --min-volume 1000000 \
+  --min-txns-h1 4 \
+  --interval 240 \
+  --alert-cooldown 2400 \
+  --min-profit 15 \
+  --disable-ai-analysis
