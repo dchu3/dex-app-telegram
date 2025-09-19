@@ -19,6 +19,7 @@ class AppConfig(NamedTuple):
     min_volume: float
     min_txns_h1: int
     interval: int
+    min_profit: float
     telegram_enabled: bool
     alert_cooldown: int
     etherscan_api_key: str
@@ -60,6 +61,7 @@ def load_config() -> AppConfig:
     parser.add_argument('--min-volume', type=float, default=1000.0, help='Min 24h volume USD per pair (default: 1000).')
     parser.add_argument('--min-txns-h1', type=int, default=1, help='Min txns (buys + sells) in the last hour (default: 1).')
     parser.add_argument('--interval', type=int, default=60, help='Seconds to wait between each scan (default: 60).')
+    parser.add_argument('--min-profit', type=float, default=0.0, help='Minimum net profit in USD required for multi-leg opportunities (default: 0.0).')
     parser.add_argument('--telegram-enabled', action='store_true', help='Enable Telegram notifications.')
     parser.add_argument('--twitter-enabled', action='store_true', help='Enable Twitter notifications.')
     parser.add_argument('--alert-cooldown', type=int, default=3600, help='Cooldown in seconds before re-alerting for the same opportunity (default: 3600).')
@@ -115,6 +117,7 @@ def load_config() -> AppConfig:
         min_volume=args.min_volume,
         min_txns_h1=args.min_txns_h1,
         interval=args.interval,
+        min_profit=args.min_profit,
         telegram_enabled=args.telegram_enabled,
         twitter_enabled=args.twitter_enabled,
         alert_cooldown=args.alert_cooldown,

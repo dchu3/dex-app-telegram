@@ -22,6 +22,7 @@ def config():
         min_volume=0.0,
         min_txns_h1=1,
         interval=60,
+        min_profit=0.0,
         telegram_enabled=False,
         alert_cooldown=3600,
         etherscan_api_key='dummy',

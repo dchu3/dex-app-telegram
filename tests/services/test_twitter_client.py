@@ -25,7 +25,7 @@ class TestTwitterClient(unittest.TestCase):
             # Fill in other required AppConfig fields with dummy data
             dex_fee=0.3, slippage=0.5, min_bullish_profit=0.0, min_bearish_discrepancy=1.0,
             min_momentum_score_bullish=0.0, min_momentum_score_bearish=0.0, trade_volume=500,
-            min_liquidity=1000, min_volume=1000, min_txns_h1=1, interval=60,
+            min_liquidity=1000, min_volume=1000, min_txns_h1=1, interval=60, min_profit=0.0,
             alert_cooldown=3600, etherscan_api_key='dummy_etherscan',
             telegram_bot_token=None, telegram_chat_id=None, coingecko_api_key=None,
             gemini_api_key=None, ai_analysis_enabled=True, multi_leg=False, max_cycle_length=3, max_depth=2,
