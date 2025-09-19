@@ -56,10 +56,18 @@ This script automates the project setup. It creates a Python virtual environment
 
 ### `start.sh`
 
-This script provides a convenient way to run the application with a common set of parameters. You can customize the parameters in the script to fit your needs.
+Launches the bot with the multi-leg (triangular) Base-chain profile tuned for DexScreener limits. Update the flags inside if you want a different chain, interval, or profit floor.
 
 ```bash
 ./start.sh
+```
+
+### `start_simple.sh`
+
+Runs the single-leg scanner with slightly tighter liquidity filters and faster polling so you can compare results without multi-leg routing.
+
+```bash
+./start_simple.sh
 ```
 
 ## Running the Application
@@ -131,6 +139,7 @@ python main.py --chain base --token AERO --telegram-enabled --scanner-enabled
 -   `--min-volume`: Min 24h volume USD per pair (default: 1000).
 -   `--min-txns-h1`: Min txns (buys + sells) in the last hour (default: 1).
 -   `--interval`: Seconds to wait between each scan (default: 60).
+-   `--min-profit`: Minimum net USD profit required for multi-leg opportunities (default: 0.0).
 -   `--telegram-enabled`: Enable Telegram notifications.
 -   `--twitter-enabled`: Enable Twitter notifications.
 -   `--alert-cooldown`: Cooldown in seconds before re-alerting for the same opportunity (default: 3600).
