@@ -1,4 +1,4 @@
-"""Dataclasses representing persisted arbitrage records."""
+"""Dataclasses representing stored arbitrage records."""
 from __future__ import annotations
 
 from dataclasses import dataclass

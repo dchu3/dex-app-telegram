@@ -523,13 +523,22 @@ class ArbitrageScanner:
                 "gas_cost_usd": opp.gas_cost_usd,
                 "dex_fee_cost_usd": opp.dex_fee_cost,
                 "slippage_cost_usd": opp.slippage_cost,
+                "price_impact_pct": opp.price_impact_pct,
                 "momentum": {
                     "score": momentum_score,
                     "volume_divergence": volume_divergence_value,
                     "persistence_count": persistence_count,
                     "rsi_value": rsi_value,
                     "dominant_dex_has_lower_price": dominant_dex_has_lower_price,
+                    "dominant_volume_ratio": opp.dominant_volume_ratio,
+                    "short_term_volume_ratio": opp.short_term_volume_ratio,
+                    "short_term_txns_total": opp.short_term_txns_total,
                 },
+                "trend": {
+                    "buy_price_change_h1": opp.buy_price_change_h1,
+                    "sell_price_change_h1": opp.sell_price_change_h1,
+                },
+                "is_early_momentum": opp.is_early_momentum,
             }
 
             await self.repository.record_opportunity_alert(

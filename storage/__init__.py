@@ -1,4 +1,4 @@
-"""Storage package providing persistence utilities for arbitrage data."""
+"""Storage package exposing persistence helpers."""
 
 from .sqlite_repository import SQLiteRepository
 
