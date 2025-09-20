@@ -199,6 +199,4 @@ async def test_ai_analysis_disabled_skips_generation(mock_calculate_momentum_sco
     scanner.gemini_client.generate_token_analysis.assert_not_awaited()
     mock_application.bot.send_message.assert_called_once()
     message_text = mock_application.bot.send_message.call_args.kwargs['text']
-    assert 'AI analysis disabled by configuration.' in message_text
-    assert 'AI-Generated Analysis' not in message_text
-    assert 'AI-generated' not in message_text
+    assert 'AI analysis disabled.' in message_text

@@ -57,10 +57,24 @@ class GeminiClient:
             return "AI analysis could not be generated (API error)."
 
         try:
-            return response_json['candidates'][0]['content']['parts'][0]['text'].strip()
+            candidate = response_json['candidates'][0]['content']['parts'][0]['text'].strip()
         except (KeyError, IndexError, TypeError, AttributeError) as e:
             print(f"Error parsing Gemini response: {e}")
             return "AI analysis could not be generated (parsing error)."
+
+        validated = self._sanitize_tweet(candidate)
+        if validated is None:
+            return "Momentum snapshot: {direction} signal on {symbol} | Δ {profit_pct:.2f}% | Score {score:.1f}/10 | Buy {buy} @ ${buy_price:.4f} → Sell {sell} @ ${sell_price:.4f}".format(
+                direction=opportunity_data['direction'].capitalize(),
+                symbol=opportunity_data['symbol'].upper(),
+                profit_pct=opportunity_data['profit_percentage'],
+                score=opportunity_data['momentum_score'],
+                buy=opportunity_data['buy_dex'],
+                sell=opportunity_data['sell_dex'],
+                buy_price=opportunity_data['buy_price'],
+                sell_price=opportunity_data['sell_price'],
+            )
+        return validated
 
     def _build_prompt(self, data: Dict) -> str:
         """Constructs the prompt for the Gemini API based on signal direction."""
@@ -70,24 +84,12 @@ class GeminiClient:
         sell_exchange = data['sell_dex']
         
         prompt = f"""
-        As a DeFi market analyst AI, analyze this {direction_text} momentum signal for {data['symbol']}.
+You are a DeFi analyst who writes concise social updates. Craft a single-paragraph, tweet-ready alert (<=280 characters) with NO links or hashtags.
 
-        **Signal Data:**
-        - **Direction:** {data['direction']}
-        - **Price Discrepancy:** {data['profit_percentage']:.2f}%
-        - **Momentum Score:** {data['momentum_score']:.1f}/10
-        - **Price (Buy Exchange: {buy_exchange}):** ${data['buy_price']:.6f}
-        - **Price (Sell Exchange: {sell_exchange}):** ${data['sell_price']:.6f}
-        - **Current Market Price:** ${data['current_price']:.6f}
+Mention token ({data['symbol']}), chain ({data.get('chain', 'Base')}), signal direction ({data['direction']}), price spread ({data['profit_percentage']:.2f}%), and momentum score ({data['momentum_score']:.1f}/10). Reference buy venue ({buy_exchange}) and sell venue ({sell_exchange}).
 
-        **Task:**
-        Provide a structured, professional, and concise analysis of this signal. **Do not give trading advice, financial advice, or a hypothetical trading plan.** Your analysis must be objective and data-driven, formatted exactly as follows:
-
-        **AI Thesis:**
-        **Market Sentiment:** (Your analysis of the current market sentiment for this token)
-        **Key Drivers:** (Your analysis of the factors driving this price discrepancy and momentum)
-        **Potential Risks:** (Your analysis of the potential risks associated with this signal)
-        """
+Rules: no financial advice, no calls to action like "buy/sell". Avoid tickers with $ prefix unless provided. Keep it upbeat but factual. Include at most two emojis. Output must be plain text, one sentence or two short clauses, no bullet points, no markdown.
+"""
         return prompt
 
     async def generate_tweet_from_analysis(self, full_analysis: str, token: str, chain: str, momentum_score: float) -> str:
@@ -124,24 +126,15 @@ class GeminiClient:
         """
         Constructs the prompt for generating a tweet.
         """
-        return f"""
-        You are a financial markets analyst who specializes in crafting concise, engaging social media updates about cryptocurrency momentum.
+        return f"Summarize this analysis in <=280 chars without links or hashtags, highlighting token {token}, chain {chain}, score {momentum_score:.1f}, and main takeaway: {full_analysis}"
 
-        Generate a tweet (max 280 characters) summarizing the provided analysis for {token} on {chain}.
-
-        **Full Analysis:**
-        ---
-        {full_analysis}
-        ---
-
-        **Instructions for the tweet:**
-        - Must be 280 characters or less.
-        - Must state the token name (${token}), the blockchain ({chain}), and the momentum score ({momentum_score:.2f}).
-        - Include one or two relevant emojis (e.g., 📈, 🚀, 💰).
-        - Do not use any hashtags.
-        - Do not include any disclaimers, "not financial advice" statements, or similar warnings.
-        - Focus on the opportunity or key finding.
-
-        **Example Format:**
-        $AERO on Base shows a momentum score of 85.25. A significant price discrepancy between two major DEXs suggests a potential short-term arbitrage opportunity. 📈
-        """
+    @staticmethod
+    def _sanitize_tweet(content: str) -> Optional[str]:
+        """Validate tweet constraints: <=280 chars, no URLs."""
+        sanitized = " ".join(content.strip().split())
+        if len(sanitized) > 280:
+            return None
+        lowered = sanitized.lower()
+        if any(tag in lowered for tag in ("http://", "https://")):
+            return None
+        return sanitized
