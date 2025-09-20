@@ -141,7 +141,7 @@ class OpportunityAnalyzer:
                     if net_profit_usd <= 0:
                         continue
 
-                    if direction == 'BULLISH' and net_profit_usd < self.config.min_bullish_profit:
+                    if direction == 'BULLISH' and profit_percentage < self.config.min_bullish_profit:
                         continue
 
                     opportunities.append(ArbitrageOpportunity(
