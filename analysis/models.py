@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 @dataclass
 class TradingPair:
@@ -32,6 +32,13 @@ class ArbitrageOpportunity:
     buy_dex_volume_usd: float
     sell_dex_volume_usd: float
     dominant_is_buy_side: bool
+    dominant_volume_ratio: float
+    price_impact_pct: float
+    buy_price_change_h1: Optional[float]
+    sell_price_change_h1: Optional[float]
+    short_term_volume_ratio: float
+    short_term_txns_total: int
+    is_early_momentum: bool
 
 @dataclass
 class MultiLegArbitrageOpportunity:

@@ -1,6 +1,8 @@
 # scanner.py
 import asyncio
+import math
 import time
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Tuple, Set, Optional
 
 import aiohttp
@@ -25,6 +27,7 @@ from services.gemini_client import GeminiClient
 from services.twitter_client import TwitterClient
 from momentum_indicator import calculate_momentum_score
 import analysis.multi_leg_analyzer as mla
+from storage import SQLiteRepository
 
 class ArbitrageScanner:
     def __init__(
@@ -37,6 +40,7 @@ class ArbitrageScanner:
         blockscout_client: "BlockscoutClient",
         gemini_client: Optional["GeminiClient"],
         twitter_client: Optional["TwitterClient"],
+        repository: Optional[SQLiteRepository] = None,
     ):
         self.config = config
         self.application = application
@@ -52,6 +56,9 @@ class ArbitrageScanner:
         self.token_map: Dict[str, str] = {}
         self.opportunity_persistence: Dict[str, List[float]] = {}
         self._coin_id_cache: Dict[str, str] = {}
+        self.repository = repository
+        self._current_scan_cycle_id: Optional[int] = None
+        self._alerts_dispatched_in_cycle: int = 0
 
     async def start(self):
         """Initializes clients and starts the main scanning loop."""
@@ -77,6 +84,9 @@ class ArbitrageScanner:
 
     async def _run_scan_cycle(self):
         """Runs a complete scan across all configured chains concurrently."""
+        self._alerts_dispatched_in_cycle = 0
+        self._current_scan_cycle_id = await self._record_scan_cycle_start()
+
         scan_tasks = [self._scan_chain(chain) for chain in self.config.chains]
         results = await asyncio.gather(*scan_tasks)
         
@@ -90,6 +100,9 @@ class ArbitrageScanner:
         
         self.application.bot_data['last_scan_time'] = time.strftime('%Y-%m-%d %H:%M:%S')
         self.application.bot_data['found_last_scan'] = len(all_simple_ops) + len(all_multileg_ops)
+
+        await self._record_scan_cycle_finish(self._alerts_dispatched_in_cycle)
+        self._current_scan_cycle_id = None
 
     async def _scan_chain(self, chain_name: str) -> Tuple[List[ArbitrageOpportunity], List[MultiLegArbitrageOpportunity]]:
         """Runs a single, complete scan for a given chain."""
@@ -424,6 +437,18 @@ class ArbitrageScanner:
                 text=message,
                 parse_mode='HTML'
             )
+
+            await self._persist_momentum_snapshot(
+                opp=opp,
+                momentum_score=momentum_score,
+                volume_divergence=volume_divergence,
+                persistence_count=persistence_count,
+                rsi_value=rsi_value,
+                dominant_dex_has_lower_price=dominant_dex_has_lower_price,
+                opportunity_key=opp_key,
+                dispatched_at=now,
+            )
+            self._alerts_dispatched_in_cycle += 1
             self.alert_cache[opp_key] = now
 
             # --- Twitter Integration ---
@@ -451,6 +476,89 @@ class ArbitrageScanner:
 
         else:
             print(f"{C_YELLOW}Skipping notification for {opp.pair_name} (cooldown).{C_RESET}")
+
+    async def _record_scan_cycle_start(self) -> Optional[int]:
+        if not self.repository:
+            return None
+        try:
+            return await self.repository.record_scan_cycle_start(self.config.chains, self.config.tokens)
+        except Exception as exc:
+            print(f"{C_RED}Failed to persist scan cycle start: {exc}{C_RESET}")
+            return None
+
+    async def _record_scan_cycle_finish(self, opportunities_found: int) -> None:
+        if not self.repository or self._current_scan_cycle_id is None:
+            return
+        try:
+            await self.repository.record_scan_cycle_finish(self._current_scan_cycle_id, opportunities_found)
+        except Exception as exc:
+            print(f"{C_RED}Failed to persist scan cycle finish: {exc}{C_RESET}")
+
+    async def _persist_momentum_snapshot(
+        self,
+        *,
+        opp: ArbitrageOpportunity,
+        momentum_score: float,
+        volume_divergence: float,
+        persistence_count: int,
+        rsi_value: float,
+        dominant_dex_has_lower_price: bool,
+        opportunity_key: str,
+        dispatched_at: float,
+    ) -> None:
+        if not self.repository:
+            return
+
+        try:
+            token_symbol = opp.pair_name.split('/')[0]
+            volume_divergence_value = None if math.isinf(volume_divergence) else volume_divergence
+            dispatched_dt = datetime.fromtimestamp(dispatched_at, timezone.utc)
+            raw_payload = {
+                "pair_name": opp.pair_name,
+                "chain": opp.chain_name,
+                "direction": opp.direction,
+                "buy_dex": opp.buy_dex,
+                "sell_dex": opp.sell_dex,
+                "effective_volume_usd": opp.effective_volume,
+                "gas_cost_usd": opp.gas_cost_usd,
+                "dex_fee_cost_usd": opp.dex_fee_cost,
+                "slippage_cost_usd": opp.slippage_cost,
+                "price_impact_pct": opp.price_impact_pct,
+                "momentum": {
+                    "score": momentum_score,
+                    "volume_divergence": volume_divergence_value,
+                    "persistence_count": persistence_count,
+                    "rsi_value": rsi_value,
+                    "dominant_dex_has_lower_price": dominant_dex_has_lower_price,
+                    "dominant_volume_ratio": opp.dominant_volume_ratio,
+                    "short_term_volume_ratio": opp.short_term_volume_ratio,
+                    "short_term_txns_total": opp.short_term_txns_total,
+                },
+                "trend": {
+                    "buy_price_change_h1": opp.buy_price_change_h1,
+                    "sell_price_change_h1": opp.sell_price_change_h1,
+                },
+                "is_early_momentum": opp.is_early_momentum,
+            }
+
+            await self.repository.record_opportunity_alert(
+                scan_cycle_id=self._current_scan_cycle_id,
+                chain=opp.chain_name,
+                token=token_symbol.upper(),
+                direction=opp.direction,
+                net_profit_usd=opp.net_profit_usd,
+                gross_profit_usd=opp.gross_profit_usd,
+                momentum_score=momentum_score,
+                opportunity_key=opportunity_key,
+                alert_sent_at=dispatched_dt,
+                volume_divergence=volume_divergence_value,
+                persistence_count=persistence_count,
+                rsi_value=rsi_value,
+                dominant_dex_has_lower_price=dominant_dex_has_lower_price,
+                raw_payload=raw_payload,
+            )
+        except Exception as exc:
+            print(f"{C_RED}Failed to persist momentum snapshot: {exc}{C_RESET}")
 
     def _prune_alert_cache(self):
         """Removes expired entries from the alert cache."""

@@ -11,6 +11,7 @@ When a significant signal is detected, the bot sends a Telegram alert containing
 ## Features
 
 - **Momentum Signal Generation:** Identifies price discrepancies and reframes them as actionable momentum signals.
+- **Early Momentum Heuristics:** Uses 5-minute volume and transaction spikes to surface emerging moves even before deep liquidity builds.
 - **Multi-Leg (Triangular) Arbitrage Scanning:** In addition to direct discrepancies, the bot can identify triangular arbitrage opportunities involving three tokens.
 - **Structured AI-Powered Analysis:** Integrates with Google's Gemini AI to provide a detailed, structured analysis for each signal, covering:
     - **AI Thesis:** A concise summary of the signal.
@@ -69,6 +70,10 @@ Runs the single-leg scanner with slightly tighter liquidity filters and faster p
 ```bash
 ./start_simple.sh
 ```
+
+## Data Persistence
+
+Momentum alerts that pass the Telegram filters are archived in `data/momentum_history.db`, a lightweight SQLite database created on startup. Each entry stores the opportunity snapshot alongside the short-term momentum breakdown (volume divergence, persistence, RSI, 5-minute surge stats), making it easy to analyse historical signals or adapt thresholds later. Delete the file if you want a clean slate; it is recreated automatically.
 
 ## Running the Application
 

@@ -1,8 +1,10 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from scanner import ArbitrageScanner
-from config import AppConfig
+
 from analysis.models import ArbitrageOpportunity
+from config import AppConfig
+from scanner import ArbitrageScanner
+
 
 @pytest.fixture
 def mock_config():
@@ -23,7 +25,7 @@ def mock_config():
         min_profit=0.0,
         telegram_enabled=True,
         twitter_enabled=False,
-        alert_cooldown=0, # Disable cooldown for testing
+        alert_cooldown=0,
         etherscan_api_key='mock_key',
         telegram_bot_token='mock_token',
         telegram_chat_id='mock_chat_id',
@@ -40,6 +42,7 @@ def mock_config():
         scanner_enabled=True,
     )
 
+
 @pytest.fixture
 def mock_application():
     app = MagicMock()
@@ -47,16 +50,27 @@ def mock_application():
     app.bot_data = {}
     return app
 
+
 @pytest.fixture
 def mock_clients():
+    dexscreener_client = MagicMock()
+    etherscan_client = MagicMock()
+    coingecko_client = MagicMock()
+    coingecko_client.search_coin = AsyncMock(return_value={'id': 'weth'})
+    coingecko_client.get_rsi = AsyncMock(return_value=70.0)
+    blockscout_client = MagicMock()
+    gemini_client = MagicMock()
+    gemini_client.generate_token_analysis = AsyncMock(return_value='Mock AI Analysis')
+    twitter_client = MagicMock()
     return (
-        MagicMock(), # DexScreenerClient
-        MagicMock(), # EtherscanClient
-        MagicMock(), # CoinGeckoClient
-        MagicMock(), # BlockscoutClient
-        MagicMock(), # GeminiClient
-        MagicMock(), # TwitterClient
+        dexscreener_client,
+        etherscan_client,
+        coingecko_client,
+        blockscout_client,
+        gemini_client,
+        twitter_client,
     )
+
 
 @pytest.fixture
 def scanner(mock_config, mock_application, mock_clients):
@@ -69,191 +83,117 @@ def scanner(mock_config, mock_application, mock_clients):
         coingecko_client,
         blockscout_client,
         gemini_client,
-        twitter_client
+        twitter_client,
     )
 
-@pytest.mark.asyncio
-@patch('scanner.calculate_momentum_score')
-async def test_telegram_notification_bullish_low_momentum_skipped(
-    mock_calculate_momentum_score, scanner, mock_application
-):
-    # Set momentum score to be lower than the threshold
-    mock_calculate_momentum_score.return_value = (4.0, {})
 
-    opp = ArbitrageOpportunity(
+def _base_opportunity(**overrides):
+    payload = dict(
         pair_name='WETH/USDC',
         chain_name='ethereum',
         buy_dex='Uniswap',
         sell_dex='Sushiswap',
-        buy_price=1000,
-        sell_price=1010,
-        gross_profit_usd=10,
-        net_profit_usd=5,
+        buy_price=1000.0,
+        sell_price=1010.0,
         gross_diff_pct=1.0,
         effective_volume=100.0,
+        gross_profit_usd=10.0,
         gas_cost_usd=0.0,
         dex_fee_cost=0.0,
         slippage_cost=0.0,
+        net_profit_usd=5.0,
         gas_price_gwei=0.0,
-        base_token_address='0xmockaddress',
-        direction='BULLISH',
-        buy_dex_volume_usd=10000,
-        sell_dex_volume_usd=10000,
+        base_token_address='0xmock',
+        buy_dex_volume_usd=10000.0,
+        sell_dex_volume_usd=10000.0,
         dominant_is_buy_side=True,
+        dominant_volume_ratio=2.0,
+        price_impact_pct=0.5,
+        buy_price_change_h1=0.0,
+        sell_price_change_h1=0.0,
+        short_term_volume_ratio=0.0,
+        short_term_txns_total=0,
+        is_early_momentum=False,
     )
+    payload.update(overrides)
+    return ArbitrageOpportunity(**payload)
+
+
+@pytest.mark.asyncio
+@patch('scanner.calculate_momentum_score')
+async def test_telegram_notification_bullish_low_momentum_skipped(mock_calculate_momentum_score, scanner, mock_application):
+    mock_calculate_momentum_score.return_value = (4.0, {})
+    opp = _base_opportunity(direction='BULLISH')
 
     await scanner._send_telegram_notification(opp)
 
-    # Assert that send_message was NOT called
     mock_application.bot.send_message.assert_not_called()
+
 
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
-async def test_telegram_notification_bearish_low_momentum_skipped(
-    mock_calculate_momentum_score, scanner, mock_application
-):
-    # Set momentum score to be lower than the threshold
+async def test_telegram_notification_bearish_low_momentum_skipped(mock_calculate_momentum_score, scanner, mock_application):
     mock_calculate_momentum_score.return_value = (4.0, {})
-
-    opp = ArbitrageOpportunity(
-        pair_name='WETH/USDC',
-        chain_name='ethereum',
-        buy_dex='Uniswap',
-        sell_dex='Sushiswap',
-        buy_price=1010,
-        sell_price=1000,
-        gross_profit_usd=10,
-        net_profit_usd=5,
-        gross_diff_pct=1.0,
-        effective_volume=100.0,
-        gas_cost_usd=0.0,
-        dex_fee_cost=0.0,
-        slippage_cost=0.0,
-        gas_price_gwei=0.0,
-        base_token_address='0xmockaddress',
+    opp = _base_opportunity(
         direction='BEARISH',
-        buy_dex_volume_usd=10000,
-        sell_dex_volume_usd=10000,
+        buy_price=1010.0,
+        sell_price=1000.0,
         dominant_is_buy_side=False,
     )
 
     await scanner._send_telegram_notification(opp)
 
-    # Assert that send_message was NOT called
     mock_application.bot.send_message.assert_not_called()
 
+
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
-async def test_telegram_notification_bullish_sufficient_momentum_sent(
-    mock_calculate_momentum_score, scanner, mock_application
-):
-    # Set momentum score to be higher than or equal to the threshold
+async def test_telegram_notification_bullish_sufficient_momentum_sent(mock_calculate_momentum_score, scanner, mock_application):
     mock_calculate_momentum_score.return_value = (5.0, {})
+    opp = _base_opportunity(direction='BULLISH')
 
-    opp = ArbitrageOpportunity(
-        pair_name='WETH/USDC',
-        chain_name='ethereum',
-        buy_dex='Uniswap',
-        sell_dex='Sushiswap',
-        buy_price=1000,
-        sell_price=1010,
-        gross_profit_usd=10,
-        net_profit_usd=5,
-        gross_diff_pct=1.0,
-        effective_volume=100.0,
-        gas_cost_usd=0.0,
-        dex_fee_cost=0.0,
-        slippage_cost=0.0,
-        gas_price_gwei=0.0,
-        base_token_address='0xmockaddress',
-        direction='BULLISH',
-        buy_dex_volume_usd=10000,
-        sell_dex_volume_usd=10000,
-        dominant_is_buy_side=True,
-    )
-
-    # Mock resolve_dex_name and generate_token_analysis to prevent errors
-    with patch.object(scanner, '_resolve_dex_name', new_callable=AsyncMock) as mock_resolve_dex_name, patch.object(scanner.gemini_client, 'generate_token_analysis', new_callable=AsyncMock) as mock_generate_token_analysis:
-        mock_resolve_dex_name.return_value = 'MockDex'
-        mock_generate_token_analysis.return_value = 'Mock AI Analysis'
+    with patch.object(scanner, '_resolve_dex_name', new_callable=AsyncMock) as mock_resolve:
+        mock_resolve.return_value = 'MockDex'
         await scanner._send_telegram_notification(opp)
 
-    # Assert that send_message was called
     mock_application.bot.send_message.assert_called_once()
+
 
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
-async def test_telegram_notification_bearish_sufficient_momentum_sent(
-    mock_calculate_momentum_score, scanner, mock_application
-):
-    # Set momentum score to be higher than or equal to the threshold
+async def test_telegram_notification_bearish_sufficient_momentum_sent(mock_calculate_momentum_score, scanner, mock_application):
     mock_calculate_momentum_score.return_value = (5.0, {})
-
-    opp = ArbitrageOpportunity(
-        pair_name='WETH/USDC',
-        chain_name='ethereum',
-        buy_dex='Uniswap',
-        sell_dex='Sushiswap',
-        buy_price=1010,
-        sell_price=1000,
-        gross_profit_usd=10,
-        net_profit_usd=5,
-        gross_diff_pct=1.0,
-        effective_volume=100.0,
-        gas_cost_usd=0.0,
-        dex_fee_cost=0.0,
-        slippage_cost=0.0,
-        gas_price_gwei=0.0,
-        base_token_address='0xmockaddress',
+    opp = _base_opportunity(
         direction='BEARISH',
-        buy_dex_volume_usd=10000,
-        sell_dex_volume_usd=10000,
+        buy_price=1010.0,
+        sell_price=1000.0,
         dominant_is_buy_side=False,
+        dominant_volume_ratio=3.0,
+        buy_price_change_h1=-1.0,
+        sell_price_change_h1=-1.5,
+        short_term_volume_ratio=0.2,
+        short_term_txns_total=5,
+        is_early_momentum=True,
     )
 
-    # Mock resolve_dex_name and generate_token_analysis to prevent errors
-    with patch.object(scanner, '_resolve_dex_name', new_callable=AsyncMock) as mock_resolve_dex_name, patch.object(scanner.gemini_client, 'generate_token_analysis', new_callable=AsyncMock) as mock_generate_token_analysis:
-        mock_resolve_dex_name.return_value = 'MockDex'
-        mock_generate_token_analysis.return_value = 'Mock AI Analysis'
+    with patch.object(scanner, '_resolve_dex_name', new_callable=AsyncMock) as mock_resolve:
+        mock_resolve.return_value = 'MockDex'
         await scanner._send_telegram_notification(opp)
 
-    # Assert that send_message was called
     mock_application.bot.send_message.assert_called_once()
+
 
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
-async def test_ai_analysis_disabled_skips_generation(
-    mock_calculate_momentum_score, scanner, mock_application
-):
+async def test_ai_analysis_disabled_skips_generation(mock_calculate_momentum_score, scanner, mock_application):
     mock_calculate_momentum_score.return_value = (5.0, {})
-
     scanner.config = scanner.config._replace(ai_analysis_enabled=False)
     scanner.gemini_client.generate_token_analysis = AsyncMock()
 
-    opp = ArbitrageOpportunity(
-        pair_name='WETH/USDC',
-        chain_name='ethereum',
-        buy_dex='Uniswap',
-        sell_dex='Sushiswap',
-        buy_price=1000,
-        sell_price=1010,
-        gross_profit_usd=10,
-        net_profit_usd=5,
-        gross_diff_pct=1.0,
-        effective_volume=100.0,
-        gas_cost_usd=0.0,
-        dex_fee_cost=0.0,
-        slippage_cost=0.0,
-        gas_price_gwei=0.0,
-        base_token_address='0xmockaddress',
-        direction='BULLISH',
-        buy_dex_volume_usd=10000,
-        sell_dex_volume_usd=10000,
-        dominant_is_buy_side=True,
-    )
+    opp = _base_opportunity(direction='BULLISH')
 
-    with patch.object(scanner, '_resolve_dex_name', new_callable=AsyncMock) as mock_resolve_dex_name:
-        mock_resolve_dex_name.return_value = 'MockDex'
+    with patch.object(scanner, '_resolve_dex_name', new_callable=AsyncMock) as mock_resolve:
+        mock_resolve.return_value = 'MockDex'
         await scanner._send_telegram_notification(opp)
 
     scanner.gemini_client.generate_token_analysis.assert_not_awaited()
