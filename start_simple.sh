@@ -36,5 +36,4 @@ python main.py \
   --min-volume 600000 \
   --min-txns-h1 3 \
   --interval 20 \
-  --alert-cooldown 1800 \
-  --disable-ai-analysis
+  --alert-cooldown 1800

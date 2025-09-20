@@ -413,18 +413,19 @@ class ArbitrageScanner:
             else:
                 ai_analysis = "AI analysis unavailable."
                 if self.gemini_client and self.config.gemini_api_key:
+                    opportunity_data = {
+                        "direction": opp.direction,
+                        "symbol": token_symbol,
+                        "chain": opp.chain_name.capitalize(),
+                        "profit_percentage": opp.gross_diff_pct,
+                        "momentum_score": momentum_score,
+                        "current_price": opp.sell_price if opp.direction == 'BULLISH' else opp.buy_price,
+                        "buy_dex": opp.buy_dex,
+                        "sell_dex": opp.sell_dex,
+                        "buy_price": opp.buy_price,
+                        "sell_price": opp.sell_price,
+                    }
                     try:
-                        opportunity_data = {
-                            "direction": opp.direction,
-                            "symbol": token_symbol,
-                            "profit_percentage": opp.gross_diff_pct,
-                            "momentum_score": momentum_score,
-                            "current_price": opp.sell_price if opp.direction == 'BULLISH' else opp.buy_price,
-                            "buy_dex": low_price_dex_name,
-                            "sell_dex": high_price_dex_name,
-                            "buy_price": opp.buy_price,
-                            "sell_price": opp.sell_price,
-                        }
                         ai_analysis = await self.gemini_client.generate_token_analysis(opportunity_data)
                     except Exception as e:
                         print(f"{C_RED}Error generating Gemini analysis: {e}{C_RESET}")
@@ -459,18 +460,8 @@ class ArbitrageScanner:
                     print(f"{C_YELLOW}Gemini client unavailable; skipping tweet generation.{C_RESET}")
                 else:
                     try:
-                        print(f"{C_BLUE}Generating tweet...{C_RESET}")
-                        tweet_text = await self.gemini_client.generate_tweet_from_analysis(
-                            full_analysis=ai_analysis,
-                            token=token_symbol,
-                            chain=opp.chain_name.capitalize(),
-                            momentum_score=momentum_score
-                        )
-                        if "Tweet could not be generated" not in tweet_text:
-                            print(f"{C_GREEN}Posting tweet: {tweet_text}{C_RESET}")
-                            self.twitter_client.post_tweet(tweet_text)
-                        else:
-                            print(f"{C_YELLOW}Skipping tweet post due to generation error.{C_RESET}")
+                        print(f"{C_GREEN}Posting tweet: {ai_analysis}{C_RESET}")
+                        self.twitter_client.post_tweet(ai_analysis)
                     except Exception as e:
                         print(f"{C_RED}Error during Twitter processing: {e}{C_RESET}")
 
@@ -585,23 +576,19 @@ class ArbitrageScanner:
         
         token_symbol = opp.pair_name.split('/')[0]
         direction_emoji = "📈" if opp.direction == "BULLISH" else "📉"
-        analysis_heading = "<b><u>AI-Generated Analysis:</u></b>" if analysis_enabled else "<b><u>Analysis:</u></b>"
-        disclaimer = (
-            "<i>Disclaimer: This is not financial advice. The analysis is AI-generated.</i>"
-            if analysis_enabled
-            else "<i>Disclaimer: This is not financial advice.</i>"
+        disclaimer = "<i>Disclaimer: This is not financial advice.</i>"
+
+        analysis_section = (
+            f"<pre>{ai_analysis}</pre>\n\n"
+            if analysis_enabled else "AI analysis disabled.\n\n"
         )
-        
+
         message = (
             f"{direction_emoji} <b>{opp.direction.capitalize()} Momentum Signal: {token_symbol.upper()} on {opp.chain_name.capitalize()}</b>\n\n"
-            f"A potential market momentum signal has been detected for <b>{token_symbol.upper()}</b>.\n\n"
-            f"<b><u>Signal Details:</u></b>\n"
-            f"- <b>Profit Margin:</b> <code>{opp.gross_diff_pct:.2f}%</code>\n"
-            f"- <b>Momentum Score:</b> <code>{momentum_score:.1f}/10</code>\n"
-            f"- <b>Buy Exchange:</b> <code>{buy_dex_name}</code> (Price: ${opp.buy_price:.6f})\n"
-            f"- <b>Sell Exchange:</b> <code>{sell_dex_name}</code> (Price: ${opp.sell_price:.6f})\n\n"
-            f"{analysis_heading}\n"
-            f"<pre>{ai_analysis}</pre>\n\n"
+            f"<b>Spread:</b> {opp.gross_diff_pct:.2f}% | <b>Score:</b> {momentum_score:.1f}/10\n"
+            f"<b>Buy:</b> {buy_dex_name} @ ${opp.buy_price:.6f}\n"
+            f"<b>Sell:</b> {sell_dex_name} @ ${opp.sell_price:.6f}\n\n"
+            f"{analysis_section}"
             f"{disclaimer}"
         )
         return message
