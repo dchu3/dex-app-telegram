@@ -70,6 +70,10 @@ Runs the single-leg scanner with slightly tighter liquidity filters and faster p
 ./start_simple.sh
 ```
 
+## Data Persistence
+
+Momentum alerts that clear the Telegram filters are automatically archived in `data/momentum_history.db`, a lightweight SQLite file created at runtime. Each entry stores the opportunity snapshot alongside the momentum breakdown (volume divergence, persistence, RSI, dominant DEX flag), which makes it easy to study historical signals or experiment with adaptive thresholds later. Delete the file if you want a clean slate; it will be recreated on the next launch.
+
 ## Running the Application
 
 ### Prerequisites

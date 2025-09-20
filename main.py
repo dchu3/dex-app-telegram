@@ -20,6 +20,7 @@ from services.coingecko_client import CoinGeckoClient
 from services.blockscout_client import BlockscoutClient
 from services.gemini_client import GeminiClient
 from services.twitter_client import TwitterClient
+from storage import SQLiteRepository
 
 async def post_init_hook(application: Application) -> None:
     """A hook that runs after the bot is initialized to set up shared clients and tasks."""
@@ -69,7 +70,8 @@ async def post_init_hook(application: Application) -> None:
             application.bot_data['coingecko_client'],
             application.bot_data['blockscout_client'],
             application.bot_data['gemini_client'],
-            application.bot_data['twitter_client']
+            application.bot_data['twitter_client'],
+            application.bot_data.get('repository')
         )
         scanner_task = asyncio.create_task(scanner.start())
         application.bot_data['scanner_task'] = scanner_task
@@ -79,10 +81,15 @@ async def post_shutdown_hook(application: Application) -> None:
     session = application.bot_data.get('http_session')
     if session:
         await session.close()
+    repository = application.bot_data.get('repository')
+    if repository:
+        await repository.close()
 
 def main() -> None:
     """The main synchronous entry point for the application."""
     config = load_config()
+
+    repository = SQLiteRepository()
 
     if not config.telegram_enabled or not config.telegram_bot_token:
         print("Telegram is not configured. The application will run in CLI-only mode.")
@@ -102,6 +109,7 @@ def main() -> None:
         'chains': config.chains,
         'tokens': config.tokens,
     }
+    application.bot_data['repository'] = repository
 
     # Register command handlers
     application.add_handler(CommandHandler("start", help_command))
