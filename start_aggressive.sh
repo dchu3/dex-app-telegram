@@ -19,22 +19,22 @@ source venv/bin/activate
 # export COINGECKO_API_KEY="YourCoinGeckoKey"
 
 # Run the bot with single-leg arbitrage defaults
-echo "🚀 Starting DEX Momentum Signal Bot (simple mode)..."
+echo "🚀 Starting DEX Momentum Signal Bot (aggressive mode)..."
 python main.py \
   --chain base \
-  --token BRETT ZORA VIRTUAL AERO AVNT AAVE \
+  --token DEGEN FRIEND MOCHI NORMIE \
   --scanner-enabled \
   --telegram-enabled \
-  --trade-volume 2000 \
+  --trade-volume 1000 \
   --dex-fee 0.3 \
-  --slippage 0.4 \
-  --min-bullish-profit 5 \
-  --min-bearish-discrepancy 1.5 \
-  --min-momentum-score-bullish 3 \
-  --min-momentum-score-bearish 3 \
-  --min-liquidity 500000 \
-  --min-volume 750000 \
-  --min-txns-h1 4 \
-  --interval 20 \
-  --alert-cooldown 1800 \
+  --slippage 0.5 \
+  --min-bullish-profit 0.5 \
+  --min-bearish-discrepancy 0.5 \
+  --min-momentum-score-bullish 2 \
+  --min-momentum-score-bearish 2 \
+  --min-liquidity 50000 \
+  --min-volume 100000 \
+  --min-txns-h1 10 \
+  --interval 30 \
+  --alert-cooldown 900 \
   --disable-ai-analysis
