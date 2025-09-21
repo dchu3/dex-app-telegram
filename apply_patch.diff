@@ -1,0 +1,8 @@
+*** Begin Patch
+*** Update File: README.md
+@@
+ ### Aggressive Mode Integration Test
+ 
+-Run `./start_aggressive.sh --integration-test` to enable relaxed liquidity/volume thresholds and keep AI copy on—ideal for validating the pipeline against thinner Base liquidity. Add `--no-ai` if you need to silence Gemini output during tests.
++Run `./start_aggressive.sh --integration-test` to enable relaxed liquidity/volume thresholds and keep AI copy on—ideal for validating the pipeline against thinner Base liquidity. Add `--no-ai` if you need to silence Gemini output during tests.
+*** End Patch

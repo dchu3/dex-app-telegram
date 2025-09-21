@@ -2,12 +2,6 @@
 
 This Python script is a command-line tool and interactive Telegram bot that identifies potential market momentum signals by analyzing price discrepancies on decentralized exchanges (DEXs).
 
-## Overview
-
-The script concurrently scans for price differences of given cryptocurrencies across multiple DEXs on multiple blockchains (such as Ethereum, Polygon, and Base). Instead of framing these discrepancies as direct arbitrage trades, it interprets them as indicators of potential market momentum.
-
-When a significant signal is detected, the bot sends a Telegram alert containing a detailed, AI-generated analysis of the market conditions surrounding the signal.
-
 ## Features
 
 - **Momentum Signal Generation:** Identifies price discrepancies and reframes them as actionable momentum signals.
@@ -52,7 +46,7 @@ When a significant signal is detected, the bot sends a Telegram alert containing
 
 This script automates the project setup. It creates a Python virtual environment and installs all the required dependencies from `requirements.txt`.
 
-```bash
+```
 ./setup.sh
 ```
 
@@ -60,7 +54,7 @@ This script automates the project setup. It creates a Python virtual environment
 
 Launches the bot with the multi-leg (triangular) Base-chain profile tuned for DexScreener limits. Update the flags inside if you want a different chain, interval, or profit floor.
 
-```bash
+```
 ./start.sh
 ```
 
@@ -70,7 +64,7 @@ Runs the single-leg scanner with slightly tighter liquidity filters and faster p
 
 Base-chain scans are limited to Aerodrome/Uniswap to ensure sufficient depth.
 
-```bash
+```
 ./start_simple.sh
 ```
 
@@ -82,16 +76,13 @@ Momentum alerts that pass the Telegram filters are archived in `data/momentum_hi
 
 Inspect the latest alerts directly from the command line without launching the bot:
 
-```bash
+```
 python main.py --show-momentum --momentum-limit 20
 ```
 
-Optional filters:
+### Aggressive Mode Integration Test
 
-- `--momentum-token BRETT` – limit results to a specific token.
-- `--momentum-direction BULLISH` – filter by signal direction.
-
-The command prints a compact table with timestamp, token, spread, net profit, short-term volume ratio, and whether the opportunity was flagged as early momentum. No API keys are required for this read-only command.
+Run `./start_aggressive.sh --integration-test` to enable relaxed liquidity/volume thresholds and keep AI copy on—ideal for validating the pipeline against thinner Base liquidity. Add `--no-ai` if you need to silence Gemini output during tests.
 
 ## Running the Application
 
@@ -99,7 +90,7 @@ The command prints a compact table with timestamp, token, spread, net profit, sh
 
 You will need to install the required Python packages. You can do this manually or by using the `setup.sh` script.
 
-```bash
+```
 pip install -r requirements.txt
 ```
 
@@ -143,7 +134,7 @@ Run the script from your terminal. To stop the script, press `Ctrl+C`.
 
 #### Example
 
-```bash
+```
 python main.py --chain base --token AERO --telegram-enabled --scanner-enabled
 ```
 
@@ -176,7 +167,7 @@ python main.py --chain base --token AERO --telegram-enabled --scanner-enabled
 
 To install the development dependencies, run:
 
-```bash
+```
 pip install -r requirements-dev.txt
 ```
 

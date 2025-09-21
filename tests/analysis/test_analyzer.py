@@ -45,6 +45,7 @@ def config():
         momentum_token=None,
         momentum_direction=None,
         limit_base_dexes=False,
+        integration_test=False,
     )
 
 # def test_profitable_opportunity(config):
@@ -206,7 +207,7 @@ def test_base_chain_allows_uniswap_and_aerodrome(config):
             },
             {
                 'chainId': 'base',
-                'dexId': 'uniswap-v3',
+                'dexId': 'uniswap',
                 'priceUsd': '1.05',
                 'priceNative': '1.05',
                 'baseToken': {'symbol': 'BRETT', 'address': '0xbase'},
@@ -222,4 +223,4 @@ def test_base_chain_allows_uniswap_and_aerodrome(config):
     assert len(opportunities) == 1
     opp = opportunities[0]
     assert opp.buy_dex == 'aerodrome'
-    assert opp.sell_dex == 'uniswap-v3'
+    assert opp.sell_dex == 'uniswap'
