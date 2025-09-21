@@ -18,11 +18,49 @@ source venv/bin/activate
 # export TELEGRAM_CHAT_ID="YourTelegramChatID"
 # export COINGECKO_API_KEY="YourCoinGeckoKey"
 
+# Detect optional flags
+INTEGRATION_TEST=false
+NO_AI=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --integration-test)
+      INTEGRATION_TEST=true
+      ;;
+    --no-ai)
+      NO_AI=true
+      ;;
+    *)
+      echo "Unknown flag: $1"
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+MIN_LIQUIDITY=50000
+MIN_VOLUME=100000
+MIN_SCORE=2
+EXTRA_FLAGS=("--limit-base-dexes")
+
+if [[ "$INTEGRATION_TEST" == true ]]; then
+  echo "⚙️  Integration test thresholds applied."
+  MIN_LIQUIDITY=20000
+  MIN_VOLUME=50000
+  MIN_SCORE=0
+  EXTRA_FLAGS+=("--integration-test")
+fi
+
+if [[ "$NO_AI" == true ]]; then
+  echo "🔇 AI analysis disabled for this run."
+  EXTRA_FLAGS+=("--disable-ai-analysis")
+fi
+
 # Run the bot with single-leg arbitrage defaults
 echo "🚀 Starting DEX Momentum Signal Bot (aggressive mode)..."
 python main.py \
   --chain base \
-  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH AAVE \
+  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH SAPIEN RFG MIRROR SOSO PIKACHU BIO AUBRAI KTA DINO EDGE BID HYPE FACY GIZA RETAKE REI FLOCK MAMO AIXBT DEGEN VVV TOSHI AAVE \
   --scanner-enabled \
   --telegram-enabled \
   --trade-volume 1000 \
@@ -30,11 +68,11 @@ python main.py \
   --slippage 0.5 \
   --min-bullish-profit 0.5 \
   --min-bearish-discrepancy 0.5 \
-  --min-momentum-score-bullish 2 \
-  --min-momentum-score-bearish 2 \
-  --min-liquidity 50000 \
-  --min-volume 100000 \
+  --min-momentum-score-bullish ${MIN_SCORE} \
+  --min-momentum-score-bearish ${MIN_SCORE} \
+  --min-liquidity ${MIN_LIQUIDITY} \
+  --min-volume ${MIN_VOLUME} \
   --min-txns-h1 10 \
   --interval 30 \
   --alert-cooldown 900 \
-  --limit-base-dexes
+  ${EXTRA_FLAGS[@]}

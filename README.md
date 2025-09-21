@@ -13,6 +13,7 @@ When a significant signal is detected, the bot sends a Telegram alert containing
 - **Momentum Signal Generation:** Identifies price discrepancies and reframes them as actionable momentum signals.
 - **Early Momentum Heuristics:** Uses 5-minute volume and transaction spikes to surface emerging moves even before deep liquidity builds.
 - **Base DEX Guardrails:** When running the single-leg scanners on Base, opportunities are restricted to Aerodrome ↔ Uniswap pairs to avoid thin venues.
+- **Integration Mode:** `start_aggressive.sh --integration-test` drops liquidity/momentum floors and enables AI analysis so you can verify end-to-end alerts in low-activity periods.
 - **Multi-Leg (Triangular) Arbitrage Scanning:** In addition to direct discrepancies, the bot can identify triangular arbitrage opportunities involving three tokens.
 - **Structured AI-Powered Analysis:** Integrates with Google's Gemini AI to provide a detailed, structured analysis for each signal, covering:
     - **AI Thesis:** A concise summary of the signal.
@@ -85,6 +86,10 @@ Inspect the latest alerts directly from the command line without launching the b
 ```bash
 python main.py --show-momentum --momentum-limit 20
 ```
+
+### Aggressive Mode Integration Test
+
+Run `./start_aggressive.sh --integration-test` to enable relaxed liquidity/volume thresholds and keep AI copy on—ideal for validating the pipeline against thinner Base liquidity. Add `--no-ai` if you need to silence Gemini output during tests.
 
 Optional filters:
 

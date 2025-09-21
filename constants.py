@@ -99,4 +99,4 @@ EARLY_MOMENTUM_MIN_TXNS_M5 = 3
 EARLY_MOMENTUM_VOLUME_RATIO_THRESHOLD = 0.035
 
 # --- DEX Allowlist ---
-BASE_ALLOWED_SINGLES = {'aerodrome', 'uniswap-v3'}
+BASE_ALLOWED_SINGLES = {'aerodrome', 'uniswap', 'uniswap-v3'}

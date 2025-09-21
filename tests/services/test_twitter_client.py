@@ -34,7 +34,8 @@ class TestTwitterClient(unittest.TestCase):
             momentum_limit=10,
             momentum_token=None,
             momentum_direction=None,
-            limit_base_dexes=False
+            limit_base_dexes=False,
+            integration_test=False
         )
 
     @patch('tweepy.Client')

@@ -42,6 +42,7 @@ class AppConfig(NamedTuple):
     momentum_token: str | None
     momentum_direction: str | None
     limit_base_dexes: bool
+    integration_test: bool
 
 
 def load_config() -> AppConfig:
@@ -82,6 +83,7 @@ def load_config() -> AppConfig:
     parser.add_argument('--momentum-token', type=str, help='Filter momentum records by token symbol.')
     parser.add_argument('--momentum-direction', choices=['BULLISH', 'BEARISH'], help='Filter momentum records by direction.')
     parser.add_argument('--limit-base-dexes', action='store_true', help='Restrict Base chain scanning to Aerodrome and Uniswap in single-leg modes.')
+    parser.add_argument('--integration-test', action='store_true', help='Relax aggressive-mode thresholds for integration testing.')
 
     args = parser.parse_args()
 
@@ -153,4 +155,5 @@ def load_config() -> AppConfig:
         momentum_token=args.momentum_token.upper() if args.momentum_token else None,
         momentum_direction=args.momentum_direction,
         limit_base_dexes=args.limit_base_dexes,
+        integration_test=args.integration_test,
     )
