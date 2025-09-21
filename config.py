@@ -43,6 +43,11 @@ class AppConfig(NamedTuple):
     momentum_direction: str | None
     limit_base_dexes: bool
     integration_test: bool
+    auto_trade: bool
+    trade_rpc_url: str | None
+    trade_wallet_address: str | None
+    trade_max_slippage: float
+    trading_private_key: str | None
 
 
 def load_config() -> AppConfig:
@@ -84,6 +89,10 @@ def load_config() -> AppConfig:
     parser.add_argument('--momentum-direction', choices=['BULLISH', 'BEARISH'], help='Filter momentum records by direction.')
     parser.add_argument('--limit-base-dexes', action='store_true', help='Restrict Base chain scanning to Aerodrome and Uniswap in single-leg modes.')
     parser.add_argument('--integration-test', action='store_true', help='Relax aggressive-mode thresholds for integration testing.')
+    parser.add_argument('--auto-trade', action='store_true', help='Enable experimental automated trading for detected opportunities.')
+    parser.add_argument('--trade-rpc-url', type=str, help='RPC endpoint used when auto trading is enabled.')
+    parser.add_argument('--trade-wallet-address', type=str, help='Optional public wallet address for logging when auto trading.')
+    parser.add_argument('--trade-max-slippage', type=float, default=1.0, help='Maximum allowed slippage percentage for auto trades (default: 1.0).')
 
     args = parser.parse_args()
 
@@ -117,6 +126,15 @@ def load_config() -> AppConfig:
     if args.twitter_enabled and not (twitter_api_key and twitter_api_secret and twitter_access_token and twitter_access_token_secret):
         print(f"{constants.C_RED}Twitter is enabled, but one or more Twitter API environment variables are not set.{constants.C_RESET}")
         exit(1)
+
+    trading_private_key = os.environ.get('TRADING_PRIVATE_KEY')
+    if args.auto_trade:
+        if not args.trade_rpc_url:
+            print(f"{constants.C_RED}--auto-trade requires --trade-rpc-url to be specified.{constants.C_RESET}")
+            exit(1)
+        if not trading_private_key:
+            print(f"{constants.C_RED}TRADING_PRIVATE_KEY environment variable not set; required for --auto-trade.{constants.C_RESET}")
+            exit(1)
 
     return AppConfig(
         chains=args.chain or [],
@@ -156,4 +174,9 @@ def load_config() -> AppConfig:
         momentum_direction=args.momentum_direction,
         limit_base_dexes=args.limit_base_dexes,
         integration_test=args.integration_test,
+        auto_trade=args.auto_trade,
+        trade_rpc_url=args.trade_rpc_url,
+        trade_wallet_address=args.trade_wallet_address,
+        trade_max_slippage=args.trade_max_slippage,
+        trading_private_key=trading_private_key,
     )

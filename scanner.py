@@ -25,6 +25,7 @@ from services.etherscan_client import EtherscanClient
 from services.coingecko_client import CoinGeckoClient
 from services.gemini_client import GeminiClient
 from services.twitter_client import TwitterClient
+from services.trade_executor import TradeExecutor
 from momentum_indicator import calculate_momentum_score
 import analysis.multi_leg_analyzer as mla
 from storage import SQLiteRepository
@@ -41,6 +42,7 @@ class ArbitrageScanner:
         gemini_client: Optional["GeminiClient"],
         twitter_client: Optional["TwitterClient"],
         repository: Optional[SQLiteRepository] = None,
+        trade_executor: Optional[TradeExecutor] = None,
     ):
         self.config = config
         self.application = application
@@ -57,6 +59,7 @@ class ArbitrageScanner:
         self.opportunity_persistence: Dict[str, List[float]] = {}
         self._coin_id_cache: Dict[str, str] = {}
         self.repository = repository
+        self.trade_executor = trade_executor
         self._current_scan_cycle_id: Optional[int] = None
         self._alerts_dispatched_in_cycle: int = 0
 

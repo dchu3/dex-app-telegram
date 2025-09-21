@@ -39,6 +39,11 @@ class ArbitrageOpportunity:
     short_term_volume_ratio: float
     short_term_txns_total: int
     is_early_momentum: bool
+    buy_pair_address: Optional[str] = None
+    sell_pair_address: Optional[str] = None
+    quote_token_address: Optional[str] = None
+    buy_token_address: Optional[str] = None
+    sell_token_address: Optional[str] = None
 
 @dataclass
 class MultiLegArbitrageOpportunity:

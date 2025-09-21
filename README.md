@@ -28,6 +28,7 @@ This Python script is a command-line tool and interactive Telegram bot that iden
 - **Asynchronous & Robust:** Uses `asyncio` and `aiohttp` for efficient, non-blocking network requests with proper rate-limiting.
 - **Configurable:** Allows users to set various parameters such as chains, tokens, scan interval, and profitability thresholds.
 - **Twitter Integration:** Optionally post generated signals to a configured Twitter account.
+- **Optional Auto-Trade:** Experimental hook can prepare Aerodrome ↔ Uniswap swaps when enabled.
 
 ## How It Works
 
@@ -84,6 +85,16 @@ python main.py --show-momentum --momentum-limit 20
 
 Run `./start_aggressive.sh --integration-test` to enable relaxed liquidity/volume thresholds and keep AI copy on—ideal for validating the pipeline against thinner Base liquidity. Add `--no-ai` if you need to silence Gemini output during tests.
 
+### Automated Trading (Experimental)
+
+To exercise the scaffolded trade executor:
+
+1. Export `TRADING_PRIVATE_KEY` with the funded wallet key.
+2. Launch with `--auto-trade --trade-rpc-url <Base RPC URL>` plus your usual scanner flags.
+3. Optional knobs: `--trade-wallet-address` (for logging) and `--trade-max-slippage <percent>` (default 1.0).
+
+The current implementation converts USD exposure into token amounts and logs the intended Aerodrome ↔ Uniswap trade; extend `services/trade_executor.py` with router calls when you are ready to submit live transactions.
+
 ## Running the Application
 
 ### Prerequisites
@@ -128,6 +139,11 @@ pip install -r requirements.txt
         export TWITTER_ACCESS_TOKEN_SECRET='YourAccessTokenSecret'
         ```
 
+6.  **Trading Private Key (Optional):**
+    -   Required only when using `--auto-trade`.
+    -   Set it as an environment variable: `export TRADING_PRIVATE_KEY='0xYourPrivateKey'`
+    -   Never commit private keys to source control.
+
 ### Manual Execution
 
 Run the script from your terminal. To stop the script, press `Ctrl+C`.
@@ -159,6 +175,10 @@ python main.py --chain base --token AERO --telegram-enabled --scanner-enabled
 -   `--alert-cooldown`: Cooldown in seconds before re-alerting for the same opportunity (default: 3600).
 -   `--scanner-enabled`: Enable the background arbitrage scanner.
 -   `--disable-ai-analysis`: Skip Gemini calls and omit AI-generated content from alerts and tweets.
+-   `--auto-trade`: Enable experimental automated execution (requires `TRADING_PRIVATE_KEY`).
+-   `--trade-rpc-url`: RPC endpoint used when auto trading.
+-   `--trade-wallet-address`: Optional public address for on-chain logging.
+-   `--trade-max-slippage`: Maximum percentage slippage tolerated when auto trading (default: 1.0).
 -   `--multi-leg`: Enable multi-leg (triangular) arbitrage scanning.
 -   `--max-cycle-length`: Max swaps in a multi-leg cycle (default: 3).
 -   `--max-depth`: Max recursion depth for finding token pairs (default: 2).

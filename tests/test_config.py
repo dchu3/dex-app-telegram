@@ -50,6 +50,11 @@ def test_min_momentum_score_bullish_parsing(monkeypatch):
         momentum_direction=None,
         limit_base_dexes=False,
         integration_test=False,
+        auto_trade=False,
+        trade_rpc_url=None,
+        trade_wallet_address=None,
+        trade_max_slippage=1.0,
+        trading_private_key=None,
     ))
     config = load_config()
     assert config.min_momentum_score_bullish == 5.5
@@ -91,6 +96,11 @@ def test_min_momentum_score_default_values(monkeypatch):
         momentum_direction=None,
         limit_base_dexes=False,
         integration_test=False,
+        auto_trade=False,
+        trade_rpc_url=None,
+        trade_wallet_address=None,
+        trade_max_slippage=1.0,
+        trading_private_key=None,
     ))
     config = load_config()
     assert config.min_momentum_score_bullish == 0.0

@@ -6,6 +6,7 @@ from datetime import datetime
 from telegram import BotCommand
 from telegram.ext import Application, CommandHandler
 
+import constants
 from config import load_config
 from bot.handlers import (
     help_command,
@@ -21,6 +22,7 @@ from services.coingecko_client import CoinGeckoClient
 from services.blockscout_client import BlockscoutClient
 from services.gemini_client import GeminiClient
 from services.twitter_client import TwitterClient
+from services.trade_executor import TradeExecutor
 from storage import SQLiteRepository
 
 async def post_init_hook(application: Application) -> None:
@@ -51,6 +53,21 @@ async def post_init_hook(application: Application) -> None:
             print(f"Could not initialize Twitter client: {e}")
     application.bot_data['twitter_client'] = twitter_client
 
+    trade_executor = None
+    if config.auto_trade:
+        try:
+            trade_executor = TradeExecutor(
+                rpc_url=config.trade_rpc_url,
+                private_key=config.trading_private_key,
+                wallet_address=config.trade_wallet_address,
+                max_slippage_pct=config.trade_max_slippage,
+            )
+            print("Trade executor initialized.")
+        except Exception as exc:
+            print(f"{constants.C_RED}Failed to initialise trade executor: {exc}{constants.C_RESET}")
+            exit(1)
+    application.bot_data['trade_executor'] = trade_executor
+
     # Set bot commands
     commands = [
         BotCommand("status", "Check bot status"),
@@ -72,7 +89,8 @@ async def post_init_hook(application: Application) -> None:
             application.bot_data['blockscout_client'],
             application.bot_data['gemini_client'],
             application.bot_data['twitter_client'],
-            application.bot_data.get('repository')
+            application.bot_data.get('repository'),
+            application.bot_data.get('trade_executor'),
         )
         scanner_task = asyncio.create_task(scanner.start())
         application.bot_data['scanner_task'] = scanner_task
@@ -85,6 +103,9 @@ async def post_shutdown_hook(application: Application) -> None:
     repository = application.bot_data.get('repository')
     if repository:
         await repository.close()
+    executor = application.bot_data.get('trade_executor')
+    if executor:
+        await executor.close()
 
 def main() -> None:
     """The main synchronous entry point for the application."""
@@ -126,6 +147,7 @@ def main() -> None:
         'tokens': config.tokens,
     }
     application.bot_data['repository'] = repository
+    application.bot_data['trade_executor'] = None
 
     # Register command handlers
     application.add_handler(CommandHandler("start", help_command))
