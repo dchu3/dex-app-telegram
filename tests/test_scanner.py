@@ -40,6 +40,10 @@ def mock_config():
         max_cycle_length=3,
         max_depth=2,
         scanner_enabled=True,
+        show_momentum=False,
+        momentum_limit=10,
+        momentum_token=None,
+        momentum_direction=None,
     )
 
 

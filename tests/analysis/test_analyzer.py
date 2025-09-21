@@ -39,7 +39,11 @@ def config():
         multi_leg=False,
         max_cycle_length=3,
         max_depth=2,
-        scanner_enabled=False
+        scanner_enabled=False,
+        show_momentum=False,
+        momentum_limit=10,
+        momentum_token=None,
+        momentum_direction=None,
     )
 
 # def test_profitable_opportunity(config):
