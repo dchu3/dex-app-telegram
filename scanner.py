@@ -515,6 +515,8 @@ class ArbitrageScanner:
                 "dex_fee_cost_usd": opp.dex_fee_cost,
                 "slippage_cost_usd": opp.slippage_cost,
                 "price_impact_pct": opp.price_impact_pct,
+                "spread_pct": opp.gross_diff_pct,
+                "net_profit_usd": opp.net_profit_usd,
                 "momentum": {
                     "score": momentum_score,
                     "volume_divergence": volume_divergence_value,

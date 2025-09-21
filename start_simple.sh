@@ -33,7 +33,7 @@ python main.py \
   --min-momentum-score-bullish 3 \
   --min-momentum-score-bearish 3 \
   --min-liquidity 400000 \
-  --min-volume 600000 \
+  --min-volume 50000 \
   --min-txns-h1 3 \
   --interval 20 \
   --alert-cooldown 1800

@@ -328,6 +328,88 @@ class SQLiteRepository:
             raw_payload=json.loads(raw_payload) if raw_payload else None,
         )
 
+    async def fetch_momentum_records(
+        self,
+        *,
+        limit: int,
+        token: Optional[str],
+        direction: Optional[str],
+    ) -> list[dict]:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            self._fetch_momentum_records_sync,
+            limit,
+            token.upper() if token else None,
+            direction,
+        )
+
+    def _fetch_momentum_records_sync(
+        self,
+        limit: int,
+        token: Optional[str],
+        direction: Optional[str],
+    ) -> list[dict]:
+        query = """
+            SELECT
+                oa.alert_sent_at,
+                oa.chain,
+                oa.token,
+                oa.direction,
+                oa.net_profit_usd,
+                oa.gross_profit_usd,
+                oa.momentum_score,
+                oa.opportunity_key,
+                ms.volume_divergence,
+                ms.persistence_count,
+                ms.rsi_value,
+                ms.dominant_dex_has_lower_price,
+                ms.raw_payload
+            FROM opportunity_alert oa
+            LEFT JOIN momentum_snapshot ms ON ms.alert_id = oa.id
+            WHERE (? IS NULL OR oa.token = ?)
+              AND (? IS NULL OR oa.direction = ?)
+            ORDER BY oa.alert_sent_at DESC
+            LIMIT ?
+        """
+        with self._lock:
+            cursor = self._connection.cursor()
+            cursor.execute(
+                query,
+                (token, token, direction, direction, limit),
+            )
+            rows = cursor.fetchall()
+            cursor.close()
+
+        records: list[dict] = []
+        for row in rows:
+            raw_payload = json.loads(row["raw_payload"]) if row["raw_payload"] else {}
+            momentum = raw_payload.get("momentum", {})
+            record = {
+                "alert_time": datetime.strptime(row["alert_sent_at"], ISO_FORMAT),
+                "chain": row["chain"],
+                "token": row["token"],
+                "direction": row["direction"],
+                "net_profit_usd": row["net_profit_usd"],
+                "gross_profit_usd": row["gross_profit_usd"],
+                "momentum_score": row["momentum_score"],
+                "opportunity_key": row["opportunity_key"],
+                "volume_divergence": row["volume_divergence"],
+                "persistence_count": row["persistence_count"],
+                "rsi_value": row["rsi_value"],
+                "dominant_dex_has_lower_price": bool(row["dominant_dex_has_lower_price"]) if row["dominant_dex_has_lower_price"] is not None else None,
+                "spread_pct": raw_payload.get("spread_pct"),
+                "price_impact_pct": raw_payload.get("price_impact_pct"),
+                "is_early_momentum": raw_payload.get("is_early_momentum", False),
+                "short_term_volume_ratio": momentum.get("short_term_volume_ratio"),
+                "short_term_txns_total": momentum.get("short_term_txns_total"),
+                "momentum_volume_divergence": momentum.get("volume_divergence"),
+                "persistence_count_window": momentum.get("persistence_count"),
+                "raw_payload": raw_payload,
+            }
+            records.append(record)
+        return records
+
     async def close(self) -> None:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._close_sync)

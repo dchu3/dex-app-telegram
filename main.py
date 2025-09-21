@@ -2,6 +2,7 @@
 import asyncio
 import aiohttp
 import time
+from datetime import datetime
 from telegram import BotCommand
 from telegram.ext import Application, CommandHandler
 
@@ -89,6 +90,21 @@ def main() -> None:
     """The main synchronous entry point for the application."""
     config = load_config()
 
+    if config.show_momentum:
+        repository = SQLiteRepository()
+        try:
+            records = asyncio.run(
+                repository.fetch_momentum_records(
+                    limit=config.momentum_limit,
+                    token=config.momentum_token,
+                    direction=config.momentum_direction,
+                )
+            )
+        finally:
+            asyncio.run(repository.close())
+        _print_momentum_records(records, config.momentum_limit, config.momentum_token, config.momentum_direction)
+        return
+
     repository = SQLiteRepository()
 
     if not config.telegram_enabled or not config.telegram_bot_token:
@@ -120,6 +136,66 @@ def main() -> None:
     application.add_handler(CommandHandler("scaninfo", scaninfo_command))
 
     application.run_polling()
+
+
+def _print_momentum_records(records: list[dict], limit: int, token: str | None, direction: str | None) -> None:
+    heading = f"Showing up to {limit} momentum records"
+    filters = []
+    if token:
+        filters.append(f"token={token.upper()}")
+    if direction:
+        filters.append(f"direction={direction}")
+    if filters:
+        heading += " (" + ", ".join(filters) + ")"
+    print(heading)
+    print("=" * len(heading))
+
+    if not records:
+        print("No momentum records found.")
+        return
+
+    headers = [
+        "Time (UTC)",
+        "Token",
+        "Dir",
+        "Score",
+        "Spread %",
+        "Net $",
+        "Vol5m %",
+        "Tx5m",
+        "Early",
+    ]
+
+    def _format_row(record: dict) -> list[str]:
+        alert_time: datetime = record.get("alert_time")
+        time_str = alert_time.strftime("%Y-%m-%d %H:%M:%S") if alert_time else "N/A"
+        spread = record.get("spread_pct")
+        vol_ratio = record.get("short_term_volume_ratio")
+        return [
+            time_str,
+            record.get("token", ""),
+            record.get("direction", ""),
+            f"{record.get('momentum_score', 0.0):.1f}",
+            f"{spread:.2f}" if spread is not None else "-",
+            f"{record.get('net_profit_usd', 0.0):.2f}",
+            f"{vol_ratio * 100:.1f}" if vol_ratio is not None else "-",
+            str(record.get("short_term_txns_total", "-")),
+            "Yes" if record.get("is_early_momentum") else "No",
+        ]
+
+    rows = [_format_row(rec) for rec in records]
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for idx, cell in enumerate(row):
+            widths[idx] = max(widths[idx], len(cell))
+
+    def _format_line(row: list[str]) -> str:
+        return "  ".join(cell.ljust(widths[idx]) for idx, cell in enumerate(row))
+
+    print(_format_line(headers))
+    print("  ".join('-' * w for w in widths))
+    for row in rows:
+        print(_format_line(row))
 
 
 if __name__ == "__main__":

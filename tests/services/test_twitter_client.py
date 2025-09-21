@@ -29,7 +29,11 @@ class TestTwitterClient(unittest.TestCase):
             alert_cooldown=3600, etherscan_api_key='dummy_etherscan',
             telegram_bot_token=None, telegram_chat_id=None, coingecko_api_key=None,
             gemini_api_key=None, ai_analysis_enabled=True, multi_leg=False, max_cycle_length=3, max_depth=2,
-            scanner_enabled=False
+            scanner_enabled=False,
+            show_momentum=False,
+            momentum_limit=10,
+            momentum_token=None,
+            momentum_direction=None
         )
 
     @patch('tweepy.Client')

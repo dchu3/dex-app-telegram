@@ -37,6 +37,10 @@ class AppConfig(NamedTuple):
     max_cycle_length: int
     max_depth: int
     scanner_enabled: bool
+    show_momentum: bool
+    momentum_limit: int
+    momentum_token: str | None
+    momentum_direction: str | None
 
 
 def load_config() -> AppConfig:
@@ -48,8 +52,8 @@ def load_config() -> AppConfig:
         epilog="Example: ./main.py --chain polygon ethereum --token WMATIC --min-profit 1.00"
     )
     # --- Existing Arguments ---
-    parser.add_argument('--chain', required=True, nargs='+', choices=constants.CHAIN_CONFIG.keys(), help='One or more blockchains to scan.')
-    parser.add_argument('--token', required=True, nargs='+', help='One or more token symbols to search for.')
+    parser.add_argument('--chain', nargs='+', choices=constants.CHAIN_CONFIG.keys(), help='One or more blockchains to scan.')
+    parser.add_argument('--token', nargs='+', help='One or more token symbols to search for.')
     parser.add_argument('--dex-fee', type=float, default=0.3, help='DEX fee percentage (default: 0.3).')
     parser.add_argument('--slippage', type=float, default=0.5, help='Slippage tolerance percentage (default: 0.5).')
     parser.add_argument('--min-bullish-profit', type=float, default=0.0, help='Minimum net profit in USD for a bullish signal (default: 0.0).')
@@ -72,8 +76,15 @@ def load_config() -> AppConfig:
     parser.add_argument('--multi-leg', action='store_true', help='Enable multi-leg (triangular) arbitrage scanning.')
     parser.add_argument('--max-cycle-length', type=int, default=3, help='Max swaps in a multi-leg cycle (default: 3).')
     parser.add_argument('--max-depth', type=int, default=2, help='Max recursion depth for finding token pairs (default: 2).')
+    parser.add_argument('--show-momentum', action='store_true', help='Display recent momentum records and exit.')
+    parser.add_argument('--momentum-limit', type=int, default=10, help='Number of recent momentum records to display (default: 10).')
+    parser.add_argument('--momentum-token', type=str, help='Filter momentum records by token symbol.')
+    parser.add_argument('--momentum-direction', choices=['BULLISH', 'BEARISH'], help='Filter momentum records by direction.')
 
     args = parser.parse_args()
+
+    if not args.show_momentum and (not args.chain or not args.token):
+        parser.error('--chain and --token are required unless --show-momentum is specified.')
 
     # Load from environment
     etherscan_api_key = os.environ.get(constants.ETHERSCAN_API_KEY_ENV_VAR)
@@ -91,7 +102,7 @@ def load_config() -> AppConfig:
     if ai_analysis_env is not None:
         ai_analysis_enabled = ai_analysis_env.lower() not in {"0", "false", "no", "off"}
 
-    if not etherscan_api_key:
+    if not etherscan_api_key and not args.show_momentum:
         print(f"{constants.C_RED}{constants.ETHERSCAN_API_KEY_ENV_VAR} environment variable not set. Get it from https://etherscan.io/apis{constants.C_RESET}")
         exit(1)
 
@@ -104,8 +115,8 @@ def load_config() -> AppConfig:
         exit(1)
 
     return AppConfig(
-        chains=args.chain,
-        tokens=args.token,
+        chains=args.chain or [],
+        tokens=args.token or [],
         dex_fee=args.dex_fee,
         slippage=args.slippage,
         min_bullish_profit=args.min_bullish_profit,
@@ -121,7 +132,7 @@ def load_config() -> AppConfig:
         telegram_enabled=args.telegram_enabled,
         twitter_enabled=args.twitter_enabled,
         alert_cooldown=args.alert_cooldown,
-        etherscan_api_key=etherscan_api_key,
+        etherscan_api_key=etherscan_api_key or "",
         telegram_bot_token=telegram_bot_token,
         telegram_chat_id=telegram_chat_id,
         coingecko_api_key=coingecko_api_key,
@@ -135,4 +146,8 @@ def load_config() -> AppConfig:
         max_cycle_length=args.max_cycle_length,
         max_depth=args.max_depth,
         scanner_enabled=args.scanner_enabled,
+        show_momentum=args.show_momentum,
+        momentum_limit=args.momentum_limit,
+        momentum_token=args.momentum_token.upper() if args.momentum_token else None,
+        momentum_direction=args.momentum_direction,
     )

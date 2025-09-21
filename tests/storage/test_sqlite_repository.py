@@ -46,3 +46,50 @@ async def test_persist_scan_cycle_and_momentum_snapshot(tmp_path):
     assert snapshot.raw_payload == {"mock": "payload"}
 
     await repository.close()
+
+
+@pytest.mark.asyncio
+async def test_fetch_momentum_records_filters(tmp_path):
+    db_path = tmp_path / "momentum.db"
+    repository = SQLiteRepository(db_path=db_path)
+
+    scan_id = await repository.record_scan_cycle_start(["base"], ["BRETT"])
+    dispatched_at = datetime.now(timezone.utc)
+
+    await repository.record_opportunity_alert(
+        scan_cycle_id=scan_id,
+        chain="base",
+        token="BRETT",
+        direction="BULLISH",
+        net_profit_usd=9.99,
+        gross_profit_usd=12.0,
+        momentum_score=6.5,
+        opportunity_key="base-BRETT-foo-bar",
+        alert_sent_at=dispatched_at,
+        volume_divergence=2.5,
+        persistence_count=4,
+        rsi_value=55.0,
+        dominant_dex_has_lower_price=True,
+        raw_payload={
+            "spread_pct": 1.7,
+            "price_impact_pct": 0.8,
+            "is_early_momentum": True,
+            "momentum": {
+                "short_term_volume_ratio": 0.22,
+                "short_term_txns_total": 6,
+                "volume_divergence": 2.4,
+                "persistence_count": 4,
+            },
+        },
+    )
+
+    records = await repository.fetch_momentum_records(limit=5, token="brett", direction="BULLISH")
+    assert len(records) == 1
+    rec = records[0]
+    assert rec["token"] == "BRETT"
+    assert rec["direction"] == "BULLISH"
+    assert rec["spread_pct"] == 1.7
+    assert rec["short_term_txns_total"] == 6
+    assert rec["is_early_momentum"] is True
+
+    await repository.close()

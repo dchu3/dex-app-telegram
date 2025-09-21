@@ -75,6 +75,21 @@ Runs the single-leg scanner with slightly tighter liquidity filters and faster p
 
 Momentum alerts that pass the Telegram filters are archived in `data/momentum_history.db`, a lightweight SQLite database created on startup. Each entry stores the opportunity snapshot alongside the short-term momentum breakdown (volume divergence, persistence, RSI, 5-minute surge stats), making it easy to analyse historical signals or adapt thresholds later. Delete the file if you want a clean slate; it is recreated automatically.
 
+### CLI: Show Momentum History
+
+Inspect the latest alerts directly from the command line without launching the bot:
+
+```bash
+python main.py --show-momentum --momentum-limit 20
+```
+
+Optional filters:
+
+- `--momentum-token BRETT` – limit results to a specific token.
+- `--momentum-direction BULLISH` – filter by signal direction.
+
+The command prints a compact table with timestamp, token, spread, net profit, short-term volume ratio, and whether the opportunity was flagged as early momentum. No API keys are required for this read-only command.
+
 ## Running the Application
 
 ### Prerequisites
