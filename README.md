@@ -12,6 +12,7 @@ When a significant signal is detected, the bot sends a Telegram alert containing
 
 - **Momentum Signal Generation:** Identifies price discrepancies and reframes them as actionable momentum signals.
 - **Early Momentum Heuristics:** Uses 5-minute volume and transaction spikes to surface emerging moves even before deep liquidity builds.
+- **Base DEX Guardrails:** When running the single-leg scanners on Base, opportunities are restricted to Aerodrome ↔ Uniswap pairs to avoid thin venues.
 - **Multi-Leg (Triangular) Arbitrage Scanning:** In addition to direct discrepancies, the bot can identify triangular arbitrage opportunities involving three tokens.
 - **Structured AI-Powered Analysis:** Integrates with Google's Gemini AI to provide a detailed, structured analysis for each signal, covering:
     - **AI Thesis:** A concise summary of the signal.
@@ -66,6 +67,8 @@ Launches the bot with the multi-leg (triangular) Base-chain profile tuned for De
 ### `start_simple.sh`
 
 Runs the single-leg scanner with slightly tighter liquidity filters and faster polling so you can compare results without multi-leg routing.
+
+Base-chain scans are limited to Aerodrome/Uniswap to ensure sufficient depth.
 
 ```bash
 ./start_simple.sh

@@ -12,6 +12,7 @@ from constants import (
     EARLY_MOMENTUM_MIN_VOLUME_M5,
     EARLY_MOMENTUM_MIN_TXNS_M5,
     EARLY_MOMENTUM_VOLUME_RATIO_THRESHOLD,
+    BASE_ALLOWED_SINGLES,
 )
 
 
@@ -119,6 +120,12 @@ class OpportunityAnalyzer:
 
                     lower_option = dex_a if dex_a['price'] < dex_b['price'] else dex_b
                     higher_option = dex_b if lower_option is dex_a else dex_a
+
+                    dex_a_id = dex_a.get('dex')
+                    dex_b_id = dex_b.get('dex')
+                    if chain_name == 'base' and self.config.limit_base_dexes:
+                        if dex_a_id not in BASE_ALLOWED_SINGLES or dex_b_id not in BASE_ALLOWED_SINGLES:
+                            continue
 
                     if dex_a['volume_24h'] == dex_b['volume_24h']:
                         dominant_option = lower_option

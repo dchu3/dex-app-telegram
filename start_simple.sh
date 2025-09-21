@@ -36,4 +36,5 @@ python main.py \
   --min-volume 50000 \
   --min-txns-h1 3 \
   --interval 20 \
-  --alert-cooldown 1800
+  --alert-cooldown 1800 \
+  --limit-base-dexes

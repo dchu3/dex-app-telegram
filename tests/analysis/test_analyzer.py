@@ -44,6 +44,7 @@ def config():
         momentum_limit=10,
         momentum_token=None,
         momentum_direction=None,
+        limit_base_dexes=False,
     )
 
 # def test_profitable_opportunity(config):
@@ -151,3 +152,74 @@ def test_direction_bearish_uses_dominant_volume(config):
     assert opp.sell_dex == 'dominantdex'
     assert opp.dominant_is_buy_side is False
     assert opp.net_profit_usd > 0
+
+
+def test_base_chain_filters_disallowed_dex(config):
+    config = config._replace(chains=['base'], limit_base_dexes=True)
+    analyzer = OpportunityAnalyzer(config)
+    pairs_data = {
+        'pairs': [
+            {
+                'chainId': 'base',
+                'dexId': 'aerodrome',
+                'priceUsd': '1.00',
+                'priceNative': '1.00',
+                'baseToken': {'symbol': 'BRETT', 'address': '0xbase'},
+                'quoteToken': {'symbol': 'USDC', 'address': '0xquote'},
+                'liquidity': {'usd': 1000000},
+                'volume': {'h24': 500000, 'm5': 30000},
+                'txns': {'h1': {'buys': 10, 'sells': 10}, 'm5': {'buys': 3, 'sells': 3}},
+            },
+            {
+                'chainId': 'base',
+                'dexId': 'randomdex',
+                'priceUsd': '1.05',
+                'priceNative': '1.05',
+                'baseToken': {'symbol': 'BRETT', 'address': '0xbase'},
+                'quoteToken': {'symbol': 'USDC', 'address': '0xquote'},
+                'liquidity': {'usd': 1000000},
+                'volume': {'h24': 500000, 'm5': 30000},
+                'txns': {'h1': {'buys': 10, 'sells': 10}, 'm5': {'buys': 3, 'sells': 3}},
+            },
+        ]
+    }
+
+    opportunities = analyzer.find_opportunities(pairs_data, 'BRETT', 1.0, 0.0, 'base')
+    assert opportunities == []
+
+
+def test_base_chain_allows_uniswap_and_aerodrome(config):
+    config = config._replace(chains=['base'], limit_base_dexes=True)
+    analyzer = OpportunityAnalyzer(config)
+    pairs_data = {
+        'pairs': [
+            {
+                'chainId': 'base',
+                'dexId': 'aerodrome',
+                'priceUsd': '1.00',
+                'priceNative': '1.00',
+                'baseToken': {'symbol': 'BRETT', 'address': '0xbase'},
+                'quoteToken': {'symbol': 'USDC', 'address': '0xquote'},
+                'liquidity': {'usd': 1000000},
+                'volume': {'h24': 500000, 'm5': 30000},
+                'txns': {'h1': {'buys': 10, 'sells': 10}, 'm5': {'buys': 3, 'sells': 3}},
+            },
+            {
+                'chainId': 'base',
+                'dexId': 'uniswap-v3',
+                'priceUsd': '1.05',
+                'priceNative': '1.05',
+                'baseToken': {'symbol': 'BRETT', 'address': '0xbase'},
+                'quoteToken': {'symbol': 'USDC', 'address': '0xquote'},
+                'liquidity': {'usd': 1000000},
+                'volume': {'h24': 500000, 'm5': 30000},
+                'txns': {'h1': {'buys': 10, 'sells': 10}, 'm5': {'buys': 3, 'sells': 3}},
+            },
+        ]
+    }
+
+    opportunities = analyzer.find_opportunities(pairs_data, 'BRETT', 1.0, 0.0, 'base')
+    assert len(opportunities) == 1
+    opp = opportunities[0]
+    assert opp.buy_dex == 'aerodrome'
+    assert opp.sell_dex == 'uniswap-v3'
