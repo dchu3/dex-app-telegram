@@ -48,6 +48,7 @@ def test_min_momentum_score_bullish_parsing(monkeypatch):
         momentum_limit=10,
         momentum_token=None,
         momentum_direction=None,
+        limit_base_dexes=False,
     ))
     config = load_config()
     assert config.min_momentum_score_bullish == 5.5
@@ -87,6 +88,7 @@ def test_min_momentum_score_default_values(monkeypatch):
         momentum_limit=10,
         momentum_token=None,
         momentum_direction=None,
+        limit_base_dexes=False,
     ))
     config = load_config()
     assert config.min_momentum_score_bullish == 0.0
