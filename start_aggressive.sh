@@ -41,6 +41,8 @@ done
 MIN_LIQUIDITY=50000
 MIN_VOLUME=100000
 MIN_SCORE=2
+MIN_BULLISH_PROFIT=0.75
+MIN_BEARISH_DISCREP=0.75
 EXTRA_FLAGS=("--limit-base-dexes")
 
 if [[ "$INTEGRATION_TEST" == true ]]; then
@@ -48,6 +50,8 @@ if [[ "$INTEGRATION_TEST" == true ]]; then
   MIN_LIQUIDITY=20000
   MIN_VOLUME=50000
   MIN_SCORE=0
+  MIN_BULLISH_PROFIT=0.5
+  MIN_BEARISH_DISCREP=0.5
   EXTRA_FLAGS+=("--integration-test")
 fi
 
@@ -60,14 +64,14 @@ fi
 echo "🚀 Starting DEX Momentum Signal Bot (aggressive mode)..."
 python main.py \
   --chain base \
-  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH SAPIEN RFG MIRROR SOSO PIKACHU BIO AUBRAI KTA DINO EDGE BID HYPE FACY GIZA RETAKE REI FLOCK MAMO AIXBT DEGEN VVV TOSHI AAVE \
+  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH SAPIEN RFG MIRROR SOSO PIKACHU BIO AUBRAI KTA DINO EDGE BID HYPE FACY GIZA RETAKE REI FLOCK MAMO AIXBT DEGEN VVV TOSHI AAVE SPX KEYCAT \
   --scanner-enabled \
   --telegram-enabled \
-  --trade-volume 1000 \
+  --trade-volume 250 \
   --dex-fee 0.3 \
   --slippage 0.5 \
-  --min-bullish-profit 0.5 \
-  --min-bearish-discrepancy 0.5 \
+  --min-bullish-profit ${MIN_BULLISH_PROFIT} \
+  --min-bearish-discrepancy ${MIN_BEARISH_DISCREP} \
   --min-momentum-score-bullish ${MIN_SCORE} \
   --min-momentum-score-bearish ${MIN_SCORE} \
   --min-liquidity ${MIN_LIQUIDITY} \
