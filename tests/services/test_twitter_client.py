@@ -35,7 +35,12 @@ class TestTwitterClient(unittest.TestCase):
             momentum_token=None,
             momentum_direction=None,
             limit_base_dexes=False,
-            integration_test=False
+            integration_test=False,
+            auto_trade=False,
+            trade_rpc_url=None,
+            trade_wallet_address=None,
+            trade_max_slippage=1.0,
+            trading_private_key=None
         )
 
     @patch('tweepy.Client')

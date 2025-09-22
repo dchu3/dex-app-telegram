@@ -4,3 +4,4 @@ aiohttp
 networkx
 
 tweepy
+web3
