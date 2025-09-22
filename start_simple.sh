@@ -22,14 +22,14 @@ source venv/bin/activate
 echo "🚀 Starting DEX Momentum Signal Bot (simple mode)..."
 python main.py \
   --chain base \
-  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH SAPIEN RFG MIRROR SOSO PIKACHU BIO AUBRAI KTA DINO EDGE BID HYPE FACY GIZA RETAKE REI FLOCK MAMO AIXBT DEGEN VVV TOSHI AAVE \
+  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH SAPIEN RFG MIRROR SOSO PIKACHU BIO AUBRAI KTA DINO EDGE BID HYPE FACY GIZA RETAKE REI FLOCK MAMO AIXBT DEGEN VVV TOSHI AAVE SPX KEYCAT \
   --scanner-enabled \
   --telegram-enabled \
-  --trade-volume 2000 \
+  --trade-volume 500 \
   --dex-fee 0.3 \
   --slippage 0.4 \
-  --min-bullish-profit 5 \
-  --min-bearish-discrepancy 1.5 \
+  --min-bullish-profit 1.0 \
+  --min-bearish-discrepancy 1.0 \
   --min-momentum-score-bullish 3 \
   --min-momentum-score-bearish 3 \
   --min-liquidity 400000 \
