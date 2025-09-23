@@ -362,7 +362,7 @@ class ArbitrageScanner:
         opp_key = f"{opp.chain_name}-{opp.pair_name}-{opp.buy_dex}-{opp.sell_dex}"
 
         if opp_key not in self.alert_cache or (now - self.alert_cache[opp_key]) > self.config.alert_cooldown:
-            print(f"{C_BLUE}Processing {opp.direction} signal for {opp.pair_name}...{C_RESET}")
+            print(f"{C_BLUE}Processing momentum candidate for {opp.pair_name}...{C_RESET}")
             
             high_price_dex_name = await self._resolve_dex_name(opp.sell_dex, opp.chain_name)
             low_price_dex_name = await self._resolve_dex_name(opp.buy_dex, opp.chain_name)
@@ -405,10 +405,10 @@ class ArbitrageScanner:
             )
 
             if opp.direction == 'BULLISH' and momentum_score < self.config.min_momentum_score_bullish:
-                print(f"{C_YELLOW}Skipping BULLISH signal for {opp.pair_name} due to low momentum score ({momentum_score:.1f} < {self.config.min_momentum_score_bullish:.1f}).{C_RESET}")
+                print(f"{C_YELLOW}Skipping signal for {opp.pair_name} due to low momentum score ({momentum_score:.1f} < {self.config.min_momentum_score_bullish:.1f}).{C_RESET}")
                 return
             if opp.direction == 'BEARISH' and momentum_score < self.config.min_momentum_score_bearish:
-                print(f"{C_YELLOW}Skipping BEARISH signal for {opp.pair_name} due to low momentum score ({momentum_score:.1f} < {self.config.min_momentum_score_bearish:.1f}).{C_RESET}")
+                print(f"{C_YELLOW}Skipping signal for {opp.pair_name} due to low momentum score ({momentum_score:.1f} < {self.config.min_momentum_score_bearish:.1f}).{C_RESET}")
                 return
 
             if not self.config.ai_analysis_enabled:
@@ -427,6 +427,13 @@ class ArbitrageScanner:
                         "sell_dex": opp.sell_dex,
                         "buy_price": opp.buy_price,
                         "sell_price": opp.sell_price,
+                        "net_profit_usd": opp.net_profit_usd,
+                        "effective_volume": opp.effective_volume,
+                        "dominant_volume_ratio": opp.dominant_volume_ratio,
+                        "dominant_flow_side": "buy" if opp.dominant_is_buy_side else "sell",
+                        "is_early_momentum": opp.is_early_momentum,
+                        "short_term_volume_ratio": opp.short_term_volume_ratio,
+                        "short_term_txns_total": opp.short_term_txns_total,
                     }
                     try:
                         ai_analysis = await self.gemini_client.generate_token_analysis(opportunity_data)
@@ -520,6 +527,8 @@ class ArbitrageScanner:
                 "price_impact_pct": opp.price_impact_pct,
                 "spread_pct": opp.gross_diff_pct,
                 "net_profit_usd": opp.net_profit_usd,
+                "dominant_volume_ratio": opp.dominant_volume_ratio,
+                "dominant_flow_side": "buy" if opp.dominant_is_buy_side else "sell",
                 "momentum": {
                     "score": momentum_score,
                     "volume_divergence": volume_divergence_value,
@@ -574,26 +583,57 @@ class ArbitrageScanner:
         return f"<a href='https://base.blockscout.com/address/{dex_identifier}'>{short_address}</a>"
 
     def format_signal_message(
-        self, opp: ArbitrageOpportunity, ai_analysis: str, momentum_score: float, 
+        self, opp: ArbitrageOpportunity, ai_analysis: str, momentum_score: float,
         buy_dex_name: str, sell_dex_name: str, analysis_enabled: bool
     ) -> str:
-        """Formats a momentum signal into a Telegram message with optional AI analysis content."""
-        
+        """Formats a direction-neutral momentum alert for Telegram."""
+
         token_symbol = opp.pair_name.split('/')[0]
-        direction_emoji = "📈" if opp.direction == "BULLISH" else "📉"
+        header_emoji = "⚡"
         disclaimer = "<i>Disclaimer: This is not financial advice.</i>"
 
-        analysis_section = (
-            f"<pre>{ai_analysis}</pre>\n\n"
-            if analysis_enabled else "AI analysis disabled.\n\n"
+        analysis_content = (
+            f"<pre>{ai_analysis}</pre>"
+            if analysis_enabled else "AI analysis disabled."
         )
 
-        message = (
-            f"{direction_emoji} <b>{opp.direction.capitalize()} Momentum Signal: {token_symbol.upper()} on {opp.chain_name.capitalize()}</b>\n\n"
-            f"<b>Spread:</b> {opp.gross_diff_pct:.2f}% | <b>Score:</b> {momentum_score:.1f}/10\n"
-            f"<b>Buy:</b> {buy_dex_name} @ ${opp.buy_price:.6f}\n"
-            f"<b>Sell:</b> {sell_dex_name} @ ${opp.sell_price:.6f}\n\n"
-            f"{analysis_section}"
-            f"{disclaimer}"
-        )
-        return message
+        def _format_percent(value: float) -> str:
+            return f"{value:+.2f}%"
+
+        trend_bits: list[str] = []
+        if opp.buy_price_change_h1 is not None:
+            trend_bits.append(f"Buy 1h change {_format_percent(opp.buy_price_change_h1)}")
+        if opp.sell_price_change_h1 is not None:
+            trend_bits.append(f"Sell 1h change {_format_percent(opp.sell_price_change_h1)}")
+        trend_line = f"<b>Trend:</b> {' | '.join(trend_bits)}" if trend_bits else ""
+
+        flow_details = ""
+        if opp.dominant_volume_ratio and math.isfinite(opp.dominant_volume_ratio):
+            flow_side = "buy" if opp.dominant_is_buy_side else "sell"
+            flow_details = f"<b>Flow:</b> {opp.dominant_volume_ratio:.2f}x {flow_side}-side volume vs other venue"
+
+        notes_bits: list[str] = []
+        if opp.is_early_momentum:
+            notes_bits.append("Early momentum pattern")
+        notes_line = f"<b>Notes:</b> {' | '.join(notes_bits)}" if notes_bits else ""
+
+        message_lines: list[str] = [
+            f"{header_emoji} <b>Momentum Spike: {token_symbol.upper()} on {opp.chain_name.capitalize()}</b>",
+            "",
+            f"<b>Spread:</b> {opp.gross_diff_pct:.2f}% | <b>Momentum Score:</b> {momentum_score:.1f}/10",
+            f"<b>Route:</b> Buy {buy_dex_name} @ ${opp.buy_price:.6f} -> Sell {sell_dex_name} @ ${opp.sell_price:.6f}",
+            f"<b>Est. Net:</b> ${opp.net_profit_usd:.2f} on ${opp.effective_volume:,.0f}",
+        ]
+
+        for optional_line in (trend_line, flow_details, notes_line):
+            if optional_line:
+                message_lines.append(optional_line)
+
+        message_lines.extend([
+            "",
+            analysis_content,
+            "",
+            disclaimer,
+        ])
+
+        return "\n".join(message_lines)

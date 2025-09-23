@@ -385,6 +385,19 @@ class SQLiteRepository:
         for row in rows:
             raw_payload = json.loads(row["raw_payload"]) if row["raw_payload"] else {}
             momentum = raw_payload.get("momentum", {})
+            trend = raw_payload.get("trend") or {}
+            dominant_volume_ratio = raw_payload.get("dominant_volume_ratio")
+            if dominant_volume_ratio is None:
+                dominant_volume_ratio = momentum.get("dominant_volume_ratio")
+
+            flow_side = raw_payload.get("dominant_flow_side")
+            if flow_side is None:
+                flow_hint = raw_payload.get("dominant_dex_has_lower_price")
+                if flow_hint is not None:
+                    flow_side = "buy" if flow_hint else "sell"
+                elif row["direction"]:
+                    flow_side = "buy" if row["direction"] == "BULLISH" else "sell"
+
             record = {
                 "alert_time": datetime.strptime(row["alert_sent_at"], ISO_FORMAT),
                 "chain": row["chain"],
@@ -405,6 +418,13 @@ class SQLiteRepository:
                 "short_term_txns_total": momentum.get("short_term_txns_total"),
                 "momentum_volume_divergence": momentum.get("volume_divergence"),
                 "persistence_count_window": momentum.get("persistence_count"),
+                "dominant_volume_ratio": dominant_volume_ratio,
+                "flow_side": flow_side,
+                "effective_volume_usd": raw_payload.get("effective_volume_usd"),
+                "buy_dex": raw_payload.get("buy_dex"),
+                "sell_dex": raw_payload.get("sell_dex"),
+                "trend_buy_change_h1": trend.get("buy_price_change_h1"),
+                "trend_sell_change_h1": trend.get("sell_price_change_h1"),
                 "raw_payload": raw_payload,
             }
             records.append(record)

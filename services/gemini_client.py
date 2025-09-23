@@ -64,32 +64,76 @@ class GeminiClient:
 
         validated = self._sanitize_tweet(candidate)
         if validated is None:
-            return "Momentum snapshot: {direction} signal on {symbol} | Δ {profit_pct:.2f}% | Score {score:.1f}/10 | Buy {buy} @ ${buy_price:.4f} → Sell {sell} @ ${sell_price:.4f}".format(
-                direction=opportunity_data['direction'].capitalize(),
-                symbol=opportunity_data['symbol'].upper(),
-                profit_pct=opportunity_data['profit_percentage'],
-                score=opportunity_data['momentum_score'],
-                buy=opportunity_data['buy_dex'],
-                sell=opportunity_data['sell_dex'],
-                buy_price=opportunity_data['buy_price'],
-                sell_price=opportunity_data['sell_price'],
-            )
+            fallback_parts = [
+                "Momentum snapshot: {symbol} on {chain}".format(
+                    symbol=(opportunity_data.get('symbol') or '').upper() or 'TOKEN',
+                    chain=opportunity_data.get('chain') or 'Base'
+                ),
+                "spread {profit_pct:.2f}%".format(profit_pct=opportunity_data.get('profit_percentage') or 0.0),
+                "score {score:.1f}/10".format(score=opportunity_data.get('momentum_score') or 0.0),
+                "{buy} -> {sell}".format(
+                    buy=opportunity_data.get('buy_dex') or 'buy venue',
+                    sell=opportunity_data.get('sell_dex') or 'sell venue'
+                ),
+            ]
+
+            net_profit = opportunity_data.get('net_profit_usd')
+            eff_volume = opportunity_data.get('effective_volume')
+            if net_profit is not None and eff_volume is not None:
+                fallback_parts.append(
+                    "est net ${net:.2f} on ${vol:,.0f}".format(net=net_profit, vol=eff_volume)
+                )
+
+            flow_ratio = opportunity_data.get('dominant_volume_ratio')
+            flow_side = opportunity_data.get('dominant_flow_side')
+            if flow_ratio and flow_ratio > 0 and flow_side in {"buy", "sell"}:
+                fallback_parts.append(
+                    "{side}-side flow {ratio:.2f}x".format(side=flow_side, ratio=flow_ratio)
+                )
+
+            if opportunity_data.get('is_early_momentum'):
+                fallback_parts.append("early momentum cue")
+
+            fallback_text = " | ".join(fallback_parts)
+            sanitized_fallback = self._sanitize_tweet(fallback_text)
+            return sanitized_fallback or fallback_text[:280]
         return validated
 
     def _build_prompt(self, data: Dict) -> str:
-        """Constructs the prompt for the Gemini API based on signal direction."""
-        
-        direction_text = "bullish" if data['direction'] == 'BULLISH' else "bearish"
-        buy_exchange = data['buy_dex']
-        sell_exchange = data['sell_dex']
-        
-        prompt = f"""
-You are a DeFi analyst who writes concise social updates. Craft a single-paragraph, tweet-ready alert (<=280 characters) with NO links or hashtags.
+        """Constructs a direction-neutral prompt for Gemini outputs."""
 
-Mention token ({data['symbol']}), chain ({data.get('chain', 'Base')}), signal direction ({data['direction']}), price spread ({data['profit_percentage']:.2f}%), and momentum score ({data['momentum_score']:.1f}/10). Reference buy venue ({buy_exchange}) and sell venue ({sell_exchange}).
+        symbol = (data.get('symbol') or '').upper() or 'TOKEN'
+        chain = data.get('chain') or 'Base'
+        spread = data.get('profit_percentage') or 0.0
+        score = data.get('momentum_score') or 0.0
+        buy_exchange = data.get('buy_dex') or 'buy venue'
+        sell_exchange = data.get('sell_dex') or 'sell venue'
+        net_profit = data.get('net_profit_usd')
+        effective_volume = data.get('effective_volume')
+        flow_ratio = data.get('dominant_volume_ratio')
+        flow_side = data.get('dominant_flow_side')
+        is_early = bool(data.get('is_early_momentum'))
 
-Rules: no financial advice, no calls to action like "buy/sell". Avoid tickers with $ prefix unless provided. Keep it upbeat but factual. Include at most two emojis. Output must be plain text, one sentence or two short clauses, no bullet points, no markdown.
-"""
+        data_points = [
+            f"token {symbol}",
+            f"chain {chain}",
+            f"spread {spread:.2f}%",
+            f"score {score:.1f}/10",
+            f"route {buy_exchange} -> {sell_exchange}",
+        ]
+
+        if net_profit is not None and effective_volume is not None:
+            data_points.append(f"est net ${net_profit:.2f} on ${effective_volume:,.0f}")
+        if flow_ratio and flow_ratio > 0 and flow_side in {"buy", "sell"}:
+            data_points.append(f"flow leans {flow_side}-side {flow_ratio:.2f}x")
+        if is_early:
+            data_points.append("early momentum cue")
+
+        prompt = """You are a DeFi analyst drafting concise, direction-neutral social updates. Compose a single alert that fits in 280 characters, plain text, no links, no hashtags, suitable for Twitter and Telegram.
+
+Summary must weave in these data points: {data_points}. Do not label the setup bullish or bearish and avoid telling readers to trade. Keep the tone factual with at most two emojis. Return one sentence or two short clauses separated by a period.""".format(
+            data_points=", ".join(data_points)
+        )
         return prompt
 
     async def generate_tweet_from_analysis(self, full_analysis: str, token: str, chain: str, momentum_score: float) -> str:

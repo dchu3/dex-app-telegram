@@ -36,9 +36,15 @@ async def test_generate_token_analysis_enforces_tweet_constraints(monkeypatch):
         "sell_dex": "Aerodrome",
         "buy_price": 1.22,
         "sell_price": 1.24,
+        "net_profit_usd": 4.0,
+        "effective_volume": 1000.0,
+        "dominant_volume_ratio": 2.0,
+        "dominant_flow_side": "sell",
+        "is_early_momentum": True,
     })
 
-    assert result.startswith("Momentum snapshot:"), "Fallback text should trigger when tweet invalid"
+    expected = "Momentum snapshot: BRETT on Base | spread 1.50% | score 6.2/10 | Uniswap -> Aerodrome | est net $4.00 on $1,000 | sell-side flow 2.00x | early momentum cue"
+    assert result == expected
     assert len(result) <= 280
     assert "http" not in result.lower()
 
@@ -68,6 +74,11 @@ async def test_generate_token_analysis_returns_sanitized_text(monkeypatch):
         "sell_dex": "Aerodrome",
         "buy_price": 1.22,
         "sell_price": 1.24,
+        "net_profit_usd": 4.0,
+        "effective_volume": 1000.0,
+        "dominant_volume_ratio": 2.0,
+        "dominant_flow_side": "sell",
+        "is_early_momentum": False,
     })
 
     assert result == "BRETT on Base shows 1.5% spread, score 6.2/10 via Uniswap -> Aerodrome. 📈"
