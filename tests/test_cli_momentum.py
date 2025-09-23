@@ -21,6 +21,11 @@ class FakeRepository:
                 "momentum_score": 6.2,
                 "spread_pct": 1.5,
                 "net_profit_usd": 8.4,
+                "effective_volume_usd": 500.0,
+                "dominant_volume_ratio": 2.5,
+                "flow_side": "sell",
+                "trend_buy_change_h1": 1.2,
+                "trend_sell_change_h1": 1.9,
                 "short_term_volume_ratio": 0.18,
                 "short_term_txns_total": 5,
                 "is_early_momentum": True,
@@ -42,7 +47,8 @@ def test_show_momentum_cli_outputs_table(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "Showing up to 10 momentum records" in output
     assert "BRETT" in output
-    assert "BULLISH" in output
+    assert "Sell 2.50x" in output
+    assert "500" in output
     assert "1.5" in output
 
 

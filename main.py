@@ -160,6 +160,8 @@ def main() -> None:
     application.run_polling()
 
 
+
+
 def _print_momentum_records(records: list[dict], limit: int, token: str | None, direction: str | None) -> None:
     heading = f"Showing up to {limit} momentum records"
     filters = []
@@ -179,29 +181,60 @@ def _print_momentum_records(records: list[dict], limit: int, token: str | None, 
     headers = [
         "Time (UTC)",
         "Token",
-        "Dir",
-        "Score",
         "Spread %",
+        "Score",
         "Net $",
+        "Clip $",
+        "Flow Skew",
+        "Trend 1h",
         "Vol5m %",
         "Tx5m",
         "Early",
     ]
+
+    def _format_percent(value: float | None) -> str:
+        if value is None:
+            return "-"
+        return f"{value:+.2f}%"
+
+    def _format_flow(record: dict) -> str:
+        ratio = record.get("dominant_volume_ratio")
+        side = record.get("flow_side")
+        if ratio and ratio > 0 and side:
+            return f"{side.capitalize()} {ratio:.2f}x"
+        if side:
+            return side.capitalize()
+        return "-"
+
+    def _format_trend(record: dict) -> str:
+        parts = []
+        trend_buy = record.get("trend_buy_change_h1")
+        trend_sell = record.get("trend_sell_change_h1")
+        if trend_buy is not None:
+            parts.append(f"Buy {_format_percent(trend_buy)}")
+        if trend_sell is not None:
+            parts.append(f"Sell {_format_percent(trend_sell)}")
+        return " / ".join(parts) if parts else "-"
 
     def _format_row(record: dict) -> list[str]:
         alert_time: datetime = record.get("alert_time")
         time_str = alert_time.strftime("%Y-%m-%d %H:%M:%S") if alert_time else "N/A"
         spread = record.get("spread_pct")
         vol_ratio = record.get("short_term_volume_ratio")
+        clip = record.get("effective_volume_usd")
+        txns = record.get("short_term_txns_total")
+        txns_str = str(txns) if txns is not None else "-"
         return [
             time_str,
             record.get("token", ""),
-            record.get("direction", ""),
-            f"{record.get('momentum_score', 0.0):.1f}",
             f"{spread:.2f}" if spread is not None else "-",
+            f"{record.get('momentum_score', 0.0):.1f}",
             f"{record.get('net_profit_usd', 0.0):.2f}",
+            f"{clip:,.0f}" if clip is not None else "-",
+            _format_flow(record),
+            _format_trend(record),
             f"{vol_ratio * 100:.1f}" if vol_ratio is not None else "-",
-            str(record.get("short_term_txns_total", "-")),
+            txns_str,
             "Yes" if record.get("is_early_momentum") else "No",
         ]
 
