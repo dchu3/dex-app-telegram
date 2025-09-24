@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from telegram import BotCommand
 from telegram.ext import Application, CommandHandler
+from telegram.error import TimedOut, TelegramError
 
 import constants
 from config import load_config
@@ -76,7 +77,13 @@ async def post_init_hook(application: Application) -> None:
         BotCommand("scaninfo", "See current scan config"),
         BotCommand("help", "Show help message"),
     ]
-    await application.bot.set_my_commands(commands)
+    try:
+        await application.bot.set_my_commands(commands)
+    except (TimedOut, TelegramError) as exc:
+        print(
+            f"{constants.C_YELLOW}Warning: unable to set Telegram bot commands ({exc})."
+            f" Continuing startup without updating commands.{constants.C_RESET}"
+        )
 
     # Start scanner task if enabled
     if config.scanner_enabled:

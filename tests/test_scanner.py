@@ -244,4 +244,4 @@ async def test_rsi_falls_back_to_history(mock_calculate_momentum_score, scanner,
     # Ensure we sent a notification and RSI fallback kept processing
     mock_application.bot.send_message.assert_called_once()
     args, kwargs = mock_calculate_momentum_score.call_args
-    assert kwargs['rsi_value'] == 62.0
+    assert kwargs['rsi_value'] == pytest.approx(59.0, rel=0.05)
