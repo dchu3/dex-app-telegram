@@ -74,6 +74,7 @@ async def test_fetch_momentum_records_filters(tmp_path):
             "spread_pct": 1.7,
             "price_impact_pct": 0.8,
             "is_early_momentum": True,
+            "momentum_explanation": "Mock explanation",
             "effective_volume_usd": 750.0,
             "dominant_volume_ratio": 2.2,
             "dominant_flow_side": "sell",
@@ -82,12 +83,13 @@ async def test_fetch_momentum_records_filters(tmp_path):
                 "sell_price_change_h1": 1.6,
             },
             "momentum": {
-                "short_term_volume_ratio": 0.22,
-                "short_term_txns_total": 6,
-                "volume_divergence": 2.4,
-                "persistence_count": 4,
-                "dominant_volume_ratio": 2.2,
-            },
+                    "short_term_volume_ratio": 0.22,
+                    "short_term_txns_total": 6,
+                    "volume_divergence": 2.4,
+                    "persistence_count": 4,
+                    "dominant_volume_ratio": 2.2,
+                },
+            "recent_momentum_history": [],
         },
     )
 
@@ -104,5 +106,6 @@ async def test_fetch_momentum_records_filters(tmp_path):
     assert rec["effective_volume_usd"] == 750.0
     assert rec["trend_buy_change_h1"] == 1.1
     assert rec["trend_sell_change_h1"] == 1.6
+    assert rec["rsi_value"] == 55.0
 
     await repository.close()

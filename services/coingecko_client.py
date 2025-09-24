@@ -33,6 +33,7 @@ class CoinGeckoClient:
         self.headers = {'x-cg-demo-api-key': self.api_key} if self.api_key else {}
         self._last_request_time = 0.0
         self._rate_limit_delay = 6
+        self._rsi_cache: Dict[tuple[str, int, str, int], tuple[float, float]] = {}
 
     async def _wait_for_rate_limit(self):
         elapsed = time.time() - self._last_request_time
@@ -86,19 +87,49 @@ class CoinGeckoClient:
         log_error("Could not parse ETH price from CoinGecko API response.")
         return None
 
-    async def get_rsi(self, coin_id: str, days: int = 15) -> Optional[float]:
+    async def get_rsi(
+        self,
+        coin_id: str,
+        *,
+        period: int = 14,
+        days: int = 15,
+        cache_ttl: int = 300,
+    ) -> Optional[float]:
+        cache_key = (coin_id, period, 'daily', days)
+        now = time.time()
+        cached = self._rsi_cache.get(cache_key)
+        if cached and (now - cached[0]) < cache_ttl:
+            return cached[1]
+
+        prices = await self._fetch_market_chart_prices(coin_id, interval='daily', days=days)
+        rsi_value = calculate_rsi(prices, period=period) if prices else None
+
+        if rsi_value is not None:
+            self._rsi_cache[cache_key] = (now, rsi_value)
+            return rsi_value
+
+        if cached:
+            log_error(f"RSI fallback to cached value for '{coin_id}' after API failure.")
+            return cached[1]
+
+        log_error(f"Unable to calculate RSI for '{coin_id}'.")
+        return None
+
+    async def _fetch_market_chart_prices(self, coin_id: str, *, interval: str, days: int) -> Optional[List[float]]:
         await self._wait_for_rate_limit()
         url = f"{COINGECKO_API_BASE_URL}/coins/{coin_id}/market_chart"
-        params = {'vs_currency': 'usd', 'days': str(days), 'interval': 'daily'}
+        params = {'vs_currency': 'usd', 'days': str(days), 'interval': interval}
         chart_data = await api_get(url, self.session, params=params, headers=self.headers)
 
-        if not chart_data or 'prices' not in chart_data or len(chart_data['prices']) < 15:
-            log_error(f"Not enough market chart data to calculate RSI for '{coin_id}'.")
+        if not chart_data or 'prices' not in chart_data:
+            log_error(f"No price data returned for '{coin_id}' (interval={interval}, days={days}).")
             return None
 
-        closing_prices = [item[1] for item in chart_data['prices']]
-        rsi_value = calculate_rsi(closing_prices)
-        return rsi_value
+        closing_prices = [item[1] for item in chart_data['prices'] if isinstance(item, list) and len(item) >= 2]
+        if len(closing_prices) <= 1:
+            log_error(f"Insufficient price points for '{coin_id}' to compute RSI.")
+            return None
+        return closing_prices
 
 async def main():
     try:

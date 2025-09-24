@@ -217,3 +217,31 @@ async def test_ai_analysis_disabled_skips_generation(mock_calculate_momentum_sco
     mock_application.bot.send_message.assert_called_once()
     message_text = mock_application.bot.send_message.call_args.kwargs['text']
     assert 'AI analysis disabled.' in message_text
+
+
+@pytest.mark.asyncio
+@patch('scanner.calculate_momentum_score')
+async def test_rsi_falls_back_to_history(mock_calculate_momentum_score, scanner, mock_application):
+    mock_calculate_momentum_score.return_value = (5.0, "Momentum OK")
+    scanner.coingecko_client.get_rsi = AsyncMock(return_value=None)
+
+    recent_history = [
+        {
+            "timestamp_utc": "2024-01-01 12:00:00",
+            "momentum_score": 6.0,
+            "spread_pct": 1.2,
+            "net_profit_usd": 2.5,
+            "clip_usd": 500,
+            "rsi_value": 62.0,
+        }
+    ]
+
+    with patch.object(scanner, '_load_recent_momentum_history', AsyncMock(return_value=recent_history)), \
+         patch.object(scanner, '_resolve_dex_name', AsyncMock(return_value='MockDex')):
+        opp = _base_opportunity(direction='BULLISH')
+        await scanner._send_telegram_notification(opp)
+
+    # Ensure we sent a notification and RSI fallback kept processing
+    mock_application.bot.send_message.assert_called_once()
+    args, kwargs = mock_calculate_momentum_score.call_args
+    assert kwargs['rsi_value'] == 62.0

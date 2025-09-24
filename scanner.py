@@ -380,6 +380,12 @@ class ArbitrageScanner:
             volume_divergence = dominant_volume / other_volume if other_volume > 0 else float('inf')
             dominant_dex_has_lower_price = opp.dominant_is_buy_side
 
+            momentum_history = await self._load_recent_momentum_history(token_symbol, opp.direction)
+            last_known_rsi = next(
+                (entry.get("rsi_value") for entry in momentum_history if entry.get("rsi_value") is not None),
+                None,
+            )
+
             rsi_value = 50
             try:
                 coin_id = self._coin_id_cache.get(token_symbol)
@@ -394,8 +400,19 @@ class ArbitrageScanner:
                     if fetched_rsi is not None:
                         rsi_value = fetched_rsi
                         print(f"Successfully fetched RSI for {token_symbol}: {rsi_value:.2f}")
+                    elif last_known_rsi is not None:
+                        rsi_value = last_known_rsi
+                        print(f"Using cached RSI for {token_symbol}: {rsi_value:.2f}")
+                    else:
+                        print(f"{C_YELLOW}Falling back to neutral RSI for {token_symbol}.{C_RESET}")
+                elif last_known_rsi is not None:
+                    rsi_value = last_known_rsi
+                    print(f"Using cached RSI (no CoinGecko id) for {token_symbol}: {rsi_value:.2f}")
             except Exception as e:
                 print(f"{C_RED}Error fetching RSI for {token_symbol}: {e}{C_RESET}")
+                if last_known_rsi is not None:
+                    rsi_value = last_known_rsi
+                    print(f"Using cached RSI after error for {token_symbol}: {rsi_value:.2f}")
 
             momentum_score, momentum_explanation = calculate_momentum_score(
                 volume_divergence=volume_divergence,
@@ -410,8 +427,6 @@ class ArbitrageScanner:
             if opp.direction == 'BEARISH' and momentum_score < self.config.min_momentum_score_bearish:
                 print(f"{C_YELLOW}Skipping signal for {opp.pair_name} due to low momentum score ({momentum_score:.1f} < {self.config.min_momentum_score_bearish:.1f}).{C_RESET}")
                 return
-
-            momentum_history: list[dict] = []
 
             if not self.config.ai_analysis_enabled:
                 ai_analysis = "AI analysis disabled by configuration."
@@ -518,6 +533,7 @@ class ArbitrageScanner:
                 "spread_pct": record.get("spread_pct"),
                 "net_profit_usd": record.get("net_profit_usd"),
                 "clip_usd": record.get("effective_volume_usd"),
+                "rsi_value": record.get("rsi_value"),
             })
         return history
 

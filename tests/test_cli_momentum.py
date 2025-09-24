@@ -29,6 +29,7 @@ class FakeRepository:
                 "short_term_volume_ratio": 0.18,
                 "short_term_txns_total": 5,
                 "is_early_momentum": True,
+                "rsi_value": 58.0,
             }
         ]
 
