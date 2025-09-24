@@ -1,28 +1,48 @@
 # momentum_indicator.py
 from typing import List, Optional
 
+
 def calculate_rsi(prices: List[float], period: int = 14) -> Optional[float]:
-    """
-    Calculates the Relative Strength Index (RSI) for a given list of prices.
-    """
-    if len(prices) < period + 1:
-        return None  # Not enough data to calculate RSI
+    """Calculates the latest RSI value using Wilder smoothing."""
 
-    changes = [prices[i] - prices[i-1] for i in range(1, len(prices))]
-    
-    gains = [change for change in changes if change > 0]
-    losses = [-change for change in changes if change < 0]
+    if period <= 0:
+        raise ValueError("RSI period must be positive")
 
-    # Calculate initial average gain and loss
+    if len(prices) <= period:
+        return None
+
+    changes = [prices[i] - prices[i - 1] for i in range(1, len(prices))]
+
+    gains = [max(change, 0.0) for change in changes]
+    losses = [max(-change, 0.0) for change in changes]
+
     avg_gain = sum(gains[:period]) / period
     avg_loss = sum(losses[:period]) / period
 
+    if avg_loss == 0 and avg_gain == 0:
+        return 50.0
     if avg_loss == 0:
-        return 100.0 # Avoid division by zero; price is only going up
+        return 100.0
+    if avg_gain == 0:
+        return 0.0
 
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
-    
+
+    for gain, loss in zip(gains[period:], losses[period:]):
+        avg_gain = ((avg_gain * (period - 1)) + gain) / period
+        avg_loss = ((avg_loss * (period - 1)) + loss) / period
+
+        if avg_loss == 0 and avg_gain == 0:
+            rsi = 50.0
+        elif avg_loss == 0:
+            rsi = 100.0
+        elif avg_gain == 0:
+            rsi = 0.0
+        else:
+            rs = avg_gain / avg_loss
+            rsi = 100 - (100 / (1 + rs))
+
     return rsi
 
 

@@ -380,7 +380,28 @@ class ArbitrageScanner:
             volume_divergence = dominant_volume / other_volume if other_volume > 0 else float('inf')
             dominant_dex_has_lower_price = opp.dominant_is_buy_side
 
+            momentum_history = await self._load_recent_momentum_history(token_symbol, opp.direction)
+            last_known_rsi = next(
+                (entry.get("rsi_value") for entry in momentum_history if entry.get("rsi_value") is not None),
+                None,
+            )
+
             rsi_value = 50
+            base_rsi = rsi_value
+            ema_rsi = None
+            ema_alpha = 2 / (min(len(momentum_history), 5) + 1) if momentum_history else None
+            if last_known_rsi is not None:
+                ema_rsi = last_known_rsi
+
+            if momentum_history and last_known_rsi is not None and ema_alpha is not None:
+                for record in momentum_history[1:]:
+                    value = record.get("rsi_value")
+                    if value is not None:
+                        ema_rsi = (value * ema_alpha) + (ema_rsi * (1 - ema_alpha)) if ema_rsi is not None else value
+
+            if ema_rsi is None and last_known_rsi is not None:
+                ema_rsi = last_known_rsi
+
             try:
                 coin_id = self._coin_id_cache.get(token_symbol)
                 if not coin_id:
@@ -393,14 +414,37 @@ class ArbitrageScanner:
                     fetched_rsi = await self.coingecko_client.get_rsi(coin_id)
                     if fetched_rsi is not None:
                         rsi_value = fetched_rsi
+                        base_rsi = rsi_value
                         print(f"Successfully fetched RSI for {token_symbol}: {rsi_value:.2f}")
+                    elif last_known_rsi is not None:
+                        rsi_value = last_known_rsi
+                        base_rsi = rsi_value
+                        print(f"Using cached RSI for {token_symbol}: {rsi_value:.2f}")
+                    else:
+                        print(f"{C_YELLOW}Falling back to neutral RSI for {token_symbol}.{C_RESET}")
+                elif last_known_rsi is not None:
+                    rsi_value = last_known_rsi
+                    base_rsi = rsi_value
+                    print(f"Using cached RSI (no CoinGecko id) for {token_symbol}: {rsi_value:.2f}")
             except Exception as e:
                 print(f"{C_RED}Error fetching RSI for {token_symbol}: {e}{C_RESET}")
+                if last_known_rsi is not None:
+                    rsi_value = last_known_rsi
+                    base_rsi = rsi_value
+                    print(f"Using cached RSI after error for {token_symbol}: {rsi_value:.2f}")
+
+            volume_norm = min(volume_divergence if math.isfinite(volume_divergence) else 5.0, 5.0) / 5.0
+            persistence_norm = min(persistence_count, 5) / 5
+            flow_bias = (volume_norm + persistence_norm) / 2
+
+            base_rsi = ema_rsi if ema_rsi is not None else base_rsi
+            blended_rsi = base_rsi + (flow_bias - 0.5) * 10
+            blended_rsi = max(0.0, min(blended_rsi, 100.0))
 
             momentum_score, momentum_explanation = calculate_momentum_score(
                 volume_divergence=volume_divergence,
                 persistence_count=persistence_count,
-                rsi_value=rsi_value,
+                rsi_value=blended_rsi,
                 dominant_dex_has_lower_price=dominant_dex_has_lower_price
             )
 
@@ -411,8 +455,6 @@ class ArbitrageScanner:
                 print(f"{C_YELLOW}Skipping signal for {opp.pair_name} due to low momentum score ({momentum_score:.1f} < {self.config.min_momentum_score_bearish:.1f}).{C_RESET}")
                 return
 
-            momentum_history: list[dict] = []
-
             if not self.config.ai_analysis_enabled:
                 ai_analysis = "AI analysis disabled by configuration."
                 twitter_summary = "AI analysis disabled."
@@ -420,7 +462,6 @@ class ArbitrageScanner:
                 ai_analysis = "AI analysis unavailable."
                 twitter_summary = ""
                 if self.gemini_client and self.config.gemini_api_key:
-                    momentum_history = await self._load_recent_momentum_history(token_symbol, opp.direction)
                     opportunity_data = {
                         "direction": opp.direction,
                         "symbol": token_symbol,
@@ -470,6 +511,7 @@ class ArbitrageScanner:
                 volume_divergence=volume_divergence,
                 persistence_count=persistence_count,
                 rsi_value=rsi_value,
+                base_rsi=base_rsi,
                 dominant_dex_has_lower_price=dominant_dex_has_lower_price,
                 opportunity_key=opp_key,
                 dispatched_at=now,
@@ -518,6 +560,7 @@ class ArbitrageScanner:
                 "spread_pct": record.get("spread_pct"),
                 "net_profit_usd": record.get("net_profit_usd"),
                 "clip_usd": record.get("effective_volume_usd"),
+                "rsi_value": record.get("rsi_value"),
             })
         return history
 
@@ -546,6 +589,7 @@ class ArbitrageScanner:
         volume_divergence: float,
         persistence_count: int,
         rsi_value: float,
+        base_rsi: float,
         dominant_dex_has_lower_price: bool,
         opportunity_key: str,
         dispatched_at: float,
@@ -573,6 +617,8 @@ class ArbitrageScanner:
                 "spread_pct": opp.gross_diff_pct,
                 "net_profit_usd": opp.net_profit_usd,
                 "momentum_explanation": momentum_explanation,
+                "base_rsi": base_rsi,
+                "blended_rsi": blended_rsi,
                 "dominant_volume_ratio": opp.dominant_volume_ratio,
                 "dominant_flow_side": "buy" if opp.dominant_is_buy_side else "sell",
                 "momentum": {
