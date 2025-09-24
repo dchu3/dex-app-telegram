@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from analysis.models import ArbitrageOpportunity
 from config import AppConfig
 from scanner import ArbitrageScanner
+from services.gemini_client import GeminiAnalysis
 
 
 @pytest.fixture
@@ -71,7 +72,12 @@ def mock_clients():
     coingecko_client.get_rsi = AsyncMock(return_value=70.0)
     blockscout_client = MagicMock()
     gemini_client = MagicMock()
-    gemini_client.generate_token_analysis = AsyncMock(return_value='Mock AI Analysis')
+    gemini_client.generate_token_analysis = AsyncMock(
+        return_value=GeminiAnalysis(
+            telegram_detail='Mock AI Analysis',
+            twitter_summary='Mock tweet summary'
+        )
+    )
     twitter_client = MagicMock()
     return (
         dexscreener_client,
@@ -133,7 +139,7 @@ def _base_opportunity(**overrides):
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
 async def test_telegram_notification_bullish_low_momentum_skipped(mock_calculate_momentum_score, scanner, mock_application):
-    mock_calculate_momentum_score.return_value = (4.0, {})
+    mock_calculate_momentum_score.return_value = (4.0, "Too weak")
     opp = _base_opportunity(direction='BULLISH')
 
     await scanner._send_telegram_notification(opp)
@@ -144,7 +150,7 @@ async def test_telegram_notification_bullish_low_momentum_skipped(mock_calculate
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
 async def test_telegram_notification_bearish_low_momentum_skipped(mock_calculate_momentum_score, scanner, mock_application):
-    mock_calculate_momentum_score.return_value = (4.0, {})
+    mock_calculate_momentum_score.return_value = (4.0, "Too weak")
     opp = _base_opportunity(
         direction='BEARISH',
         buy_price=1010.0,
@@ -160,7 +166,7 @@ async def test_telegram_notification_bearish_low_momentum_skipped(mock_calculate
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
 async def test_telegram_notification_bullish_sufficient_momentum_sent(mock_calculate_momentum_score, scanner, mock_application):
-    mock_calculate_momentum_score.return_value = (5.0, {})
+    mock_calculate_momentum_score.return_value = (5.0, "Momentum OK")
     opp = _base_opportunity(direction='BULLISH')
 
     with patch.object(scanner, '_resolve_dex_name', new_callable=AsyncMock) as mock_resolve:
@@ -173,7 +179,7 @@ async def test_telegram_notification_bullish_sufficient_momentum_sent(mock_calcu
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
 async def test_telegram_notification_bearish_sufficient_momentum_sent(mock_calculate_momentum_score, scanner, mock_application):
-    mock_calculate_momentum_score.return_value = (5.0, {})
+    mock_calculate_momentum_score.return_value = (5.0, "Momentum OK")
     opp = _base_opportunity(
         direction='BEARISH',
         buy_price=1010.0,
@@ -197,7 +203,7 @@ async def test_telegram_notification_bearish_sufficient_momentum_sent(mock_calcu
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
 async def test_ai_analysis_disabled_skips_generation(mock_calculate_momentum_score, scanner, mock_application):
-    mock_calculate_momentum_score.return_value = (5.0, {})
+    mock_calculate_momentum_score.return_value = (5.0, "Momentum OK")
     scanner.config = scanner.config._replace(ai_analysis_enabled=False)
     scanner.gemini_client.generate_token_analysis = AsyncMock()
 
