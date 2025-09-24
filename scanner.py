@@ -397,7 +397,7 @@ class ArbitrageScanner:
             except Exception as e:
                 print(f"{C_RED}Error fetching RSI for {token_symbol}: {e}{C_RESET}")
 
-            momentum_score, _ = calculate_momentum_score(
+            momentum_score, momentum_explanation = calculate_momentum_score(
                 volume_divergence=volume_divergence,
                 persistence_count=persistence_count,
                 rsi_value=rsi_value,
@@ -411,11 +411,16 @@ class ArbitrageScanner:
                 print(f"{C_YELLOW}Skipping signal for {opp.pair_name} due to low momentum score ({momentum_score:.1f} < {self.config.min_momentum_score_bearish:.1f}).{C_RESET}")
                 return
 
+            momentum_history: list[dict] = []
+
             if not self.config.ai_analysis_enabled:
                 ai_analysis = "AI analysis disabled by configuration."
+                twitter_summary = "AI analysis disabled."
             else:
                 ai_analysis = "AI analysis unavailable."
+                twitter_summary = ""
                 if self.gemini_client and self.config.gemini_api_key:
+                    momentum_history = await self._load_recent_momentum_history(token_symbol, opp.direction)
                     opportunity_data = {
                         "direction": opp.direction,
                         "symbol": token_symbol,
@@ -429,17 +434,27 @@ class ArbitrageScanner:
                         "sell_price": opp.sell_price,
                         "net_profit_usd": opp.net_profit_usd,
                         "effective_volume": opp.effective_volume,
-                        "dominant_volume_ratio": opp.dominant_volume_ratio,
-                        "dominant_flow_side": "buy" if opp.dominant_is_buy_side else "sell",
-                        "is_early_momentum": opp.is_early_momentum,
-                        "short_term_volume_ratio": opp.short_term_volume_ratio,
-                        "short_term_txns_total": opp.short_term_txns_total,
+                        "momentum_explanation": momentum_explanation,
+                        "momentum_breakdown": {
+                            "volume_divergence": volume_divergence,
+                            "persistence_count": persistence_count,
+                            "rsi_value": rsi_value,
+                            "dominant_flow_side": "buy" if dominant_dex_has_lower_price else "sell",
+                            "dominant_volume_ratio": opp.dominant_volume_ratio,
+                            "short_term_volume_ratio": opp.short_term_volume_ratio,
+                            "short_term_txns_total": opp.short_term_txns_total,
+                            "is_early_momentum": opp.is_early_momentum,
+                        },
+                        "momentum_history": momentum_history,
                     }
                     try:
-                        ai_analysis = await self.gemini_client.generate_token_analysis(opportunity_data)
+                        analysis_result = await self.gemini_client.generate_token_analysis(opportunity_data)
+                        ai_analysis = analysis_result.telegram_detail
+                        twitter_summary = analysis_result.twitter_summary
                     except Exception as e:
                         print(f"{C_RED}Error generating Gemini analysis: {e}{C_RESET}")
                         ai_analysis = "AI analysis failed to generate."
+                        twitter_summary = "AI analysis unavailable."
 
             message = self.format_signal_message(opp, ai_analysis, momentum_score, low_price_dex_name, high_price_dex_name, self.config.ai_analysis_enabled)
             
@@ -458,6 +473,8 @@ class ArbitrageScanner:
                 dominant_dex_has_lower_price=dominant_dex_has_lower_price,
                 opportunity_key=opp_key,
                 dispatched_at=now,
+                momentum_explanation=momentum_explanation,
+                momentum_history=momentum_history,
             )
             self._alerts_dispatched_in_cycle += 1
             self.alert_cache[opp_key] = now
@@ -470,13 +487,39 @@ class ArbitrageScanner:
                     print(f"{C_YELLOW}Gemini client unavailable; skipping tweet generation.{C_RESET}")
                 else:
                     try:
-                        print(f"{C_GREEN}Posting tweet: {ai_analysis}{C_RESET}")
-                        self.twitter_client.post_tweet(ai_analysis)
+                        tweet_payload = twitter_summary or ai_analysis
+                        print(f"{C_GREEN}Posting tweet: {tweet_payload}{C_RESET}")
+                        self.twitter_client.post_tweet(tweet_payload)
                     except Exception as e:
                         print(f"{C_RED}Error during Twitter processing: {e}{C_RESET}")
 
         else:
             print(f"{C_YELLOW}Skipping notification for {opp.pair_name} (cooldown).{C_RESET}")
+
+    async def _load_recent_momentum_history(self, token_symbol: str, direction: str, limit: int = 3) -> list[dict]:
+        if not self.repository:
+            return []
+        try:
+            records = await self.repository.fetch_momentum_records(
+                limit=limit,
+                token=token_symbol.upper(),
+                direction=direction,
+            )
+        except Exception as exc:
+            print(f"{C_RED}Failed to load momentum history for {token_symbol}: {exc}{C_RESET}")
+            return []
+
+        history: list[dict] = []
+        for record in records:
+            alert_time = record.get("alert_time")
+            history.append({
+                "timestamp_utc": alert_time.strftime("%Y-%m-%d %H:%M:%S") if alert_time else None,
+                "momentum_score": record.get("momentum_score"),
+                "spread_pct": record.get("spread_pct"),
+                "net_profit_usd": record.get("net_profit_usd"),
+                "clip_usd": record.get("effective_volume_usd"),
+            })
+        return history
 
     async def _record_scan_cycle_start(self) -> Optional[int]:
         if not self.repository:
@@ -506,6 +549,8 @@ class ArbitrageScanner:
         dominant_dex_has_lower_price: bool,
         opportunity_key: str,
         dispatched_at: float,
+        momentum_explanation: str | None,
+        momentum_history: list[dict],
     ) -> None:
         if not self.repository:
             return
@@ -527,6 +572,7 @@ class ArbitrageScanner:
                 "price_impact_pct": opp.price_impact_pct,
                 "spread_pct": opp.gross_diff_pct,
                 "net_profit_usd": opp.net_profit_usd,
+                "momentum_explanation": momentum_explanation,
                 "dominant_volume_ratio": opp.dominant_volume_ratio,
                 "dominant_flow_side": "buy" if opp.dominant_is_buy_side else "sell",
                 "momentum": {
@@ -544,6 +590,7 @@ class ArbitrageScanner:
                     "sell_price_change_h1": opp.sell_price_change_h1,
                 },
                 "is_early_momentum": opp.is_early_momentum,
+                "recent_momentum_history": momentum_history,
             }
 
             await self.repository.record_opportunity_alert(

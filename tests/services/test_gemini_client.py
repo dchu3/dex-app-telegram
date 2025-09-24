@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from services.gemini_client import GeminiClient
+from services.gemini_client import GeminiClient, GeminiAnalysis
 
 
 class DummySession:
@@ -43,10 +43,10 @@ async def test_generate_token_analysis_enforces_tweet_constraints(monkeypatch):
         "is_early_momentum": True,
     })
 
-    expected = "Momentum snapshot: BRETT on Base | spread 1.50% | score 6.2/10 | Uniswap -> Aerodrome | est net $4.00 on $1,000 | sell-side flow 2.00x | early momentum cue"
-    assert result == expected
-    assert len(result) <= 280
-    assert "http" not in result.lower()
+    assert isinstance(result, GeminiAnalysis)
+    assert "Momentum score" in result.telegram_detail
+    assert len(result.twitter_summary) <= 280
+    assert "http" not in result.twitter_summary.lower()
 
 
 @pytest.mark.asyncio
@@ -57,7 +57,7 @@ async def test_generate_token_analysis_returns_sanitized_text(monkeypatch):
     async def fake_post(url, session, json_data, headers=None):
         return {
             "candidates": [
-                {"content": {"parts": [{"text": "BRETT on Base shows 1.5% spread, score 6.2/10 via Uniswap -> Aerodrome. 📈"}]}}
+                {"content": {"parts": [{"text": '{"telegram_detail": "Momentum score 6.2/10 reflects 3 detections with 2.0x flow and RSI 55. History shows 5.8 on 2024-01-01.", "twitter_summary": "BRETT Base: score 6.2/10; spread 1.50%; flow sell 2.00x; detections 3; RSI 55."}'}]}}
             ]
         }
 
@@ -79,6 +79,18 @@ async def test_generate_token_analysis_returns_sanitized_text(monkeypatch):
         "dominant_volume_ratio": 2.0,
         "dominant_flow_side": "sell",
         "is_early_momentum": False,
+        "momentum_breakdown": {
+            "volume_divergence": 2.0,
+            "persistence_count": 3,
+            "rsi_value": 55,
+            "dominant_flow_side": "sell",
+            "dominant_volume_ratio": 2.0,
+        },
+        "momentum_history": [
+            {"timestamp_utc": "2024-01-01 12:00:00", "momentum_score": 5.8, "spread_pct": 1.3, "net_profit_usd": 3.5}
+        ],
     })
-
-    assert result == "BRETT on Base shows 1.5% spread, score 6.2/10 via Uniswap -> Aerodrome. 📈"
+    assert isinstance(result, GeminiAnalysis)
+    assert "Momentum score" in result.telegram_detail
+    assert len(result.twitter_summary) <= 280
+    assert "BRETT" in result.twitter_summary
