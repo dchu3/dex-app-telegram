@@ -64,7 +64,7 @@ fi
 echo "🚀 Starting DEX Momentum Signal Bot (aggressive mode)..."
 python main.py \
   --chain base \
-  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH  AAVE PENDLE PENGU \
+  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH  AAVE PENDLE \
   --scanner-enabled \
   --telegram-enabled \
   --trade-volume 250 \
