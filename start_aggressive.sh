@@ -76,7 +76,7 @@ python main.py \
   --min-momentum-score-bearish ${MIN_SCORE} \
   --min-liquidity ${MIN_LIQUIDITY} \
   --min-volume ${MIN_VOLUME} \
-  --min-txns-h1 10 \
+  --min-txns-h1 100 \
   --interval 30 \
   --alert-cooldown 900 \
   ${EXTRA_FLAGS[@]}
