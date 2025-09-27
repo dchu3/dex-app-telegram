@@ -26,6 +26,7 @@ def mock_config():
         min_profit=0.0,
         telegram_enabled=True,
         twitter_enabled=False,
+        min_tweet_momentum_score=7.0,
         alert_cooldown=0,
         etherscan_api_key='mock_key',
         telegram_bot_token='mock_token',
@@ -245,3 +246,41 @@ async def test_rsi_falls_back_to_history(mock_calculate_momentum_score, scanner,
     mock_application.bot.send_message.assert_called_once()
     args, kwargs = mock_calculate_momentum_score.call_args
     assert kwargs['rsi_value'] == pytest.approx(59.0, rel=0.05)
+
+
+@pytest.mark.asyncio
+@patch('scanner.calculate_momentum_score')
+async def test_tweet_skipped_when_below_threshold(mock_calculate_momentum_score, scanner, mock_application):
+    mock_calculate_momentum_score.return_value = (6.5, "Solid momentum")
+    scanner.config = scanner.config._replace(
+        twitter_enabled=True,
+        gemini_api_key='mock_key',
+        min_tweet_momentum_score=7.0,
+    )
+
+    with patch.object(scanner, '_load_recent_momentum_history', AsyncMock(return_value=[])), \
+         patch.object(scanner, '_resolve_dex_name', AsyncMock(return_value='MockDex')):
+        opp = _base_opportunity(direction='BULLISH')
+        await scanner._send_telegram_notification(opp)
+
+    scanner.twitter_client.post_tweet.assert_not_called()
+    mock_application.bot.send_message.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch('scanner.calculate_momentum_score')
+async def test_tweet_sent_when_above_threshold(mock_calculate_momentum_score, scanner, mock_application):
+    mock_calculate_momentum_score.return_value = (7.5, "High momentum")
+    scanner.config = scanner.config._replace(
+        twitter_enabled=True,
+        gemini_api_key='mock_key',
+        min_tweet_momentum_score=7.0,
+    )
+
+    with patch.object(scanner, '_load_recent_momentum_history', AsyncMock(return_value=[])), \
+         patch.object(scanner, '_resolve_dex_name', AsyncMock(return_value='MockDex')):
+        opp = _base_opportunity(direction='BULLISH')
+        await scanner._send_telegram_notification(opp)
+
+    scanner.twitter_client.post_tweet.assert_called_once()
+    mock_application.bot.send_message.assert_called_once()

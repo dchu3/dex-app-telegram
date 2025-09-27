@@ -21,6 +21,7 @@ source venv/bin/activate
 # Detect optional flags
 INTEGRATION_TEST=false
 NO_AI=false
+ENABLE_TWITTER=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,6 +30,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-ai)
       NO_AI=true
+      ;;
+    --enable-twitter)
+      ENABLE_TWITTER=true
+      ;;
+    --disable-twitter)
+      ENABLE_TWITTER=false
       ;;
     *)
       echo "Unknown flag: $1"
@@ -58,6 +65,10 @@ fi
 if [[ "$NO_AI" == true ]]; then
   echo "🔇 AI analysis disabled for this run."
   EXTRA_FLAGS+=("--disable-ai-analysis")
+fi
+
+if [[ "$ENABLE_TWITTER" == true ]]; then
+  EXTRA_FLAGS+=("--twitter-enabled")
 fi
 
 # Run the bot with single-leg arbitrage defaults

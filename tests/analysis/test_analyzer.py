@@ -32,6 +32,7 @@ def config():
         gemini_api_key=None,
         ai_analysis_enabled=True,
         twitter_enabled=False,
+        min_tweet_momentum_score=7.0,
         twitter_api_key=None,
         twitter_api_secret=None,
         twitter_access_token=None,

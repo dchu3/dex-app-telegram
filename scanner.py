@@ -524,7 +524,12 @@ class ArbitrageScanner:
 
             # --- Twitter Integration ---
             if self.config.twitter_enabled and self.twitter_client:
-                if not self.config.ai_analysis_enabled:
+                if momentum_score < self.config.min_tweet_momentum_score:
+                    print(
+                        f"{C_YELLOW}Momentum score {momentum_score:.1f} below tweet threshold "
+                        f"{self.config.min_tweet_momentum_score:.1f}; skipping tweet.{C_RESET}"
+                    )
+                elif not self.config.ai_analysis_enabled:
                     print(f"{C_YELLOW}AI analysis disabled; skipping tweet generation.{C_RESET}")
                 elif not self.gemini_client or not self.config.gemini_api_key:
                     print(f"{C_YELLOW}Gemini client unavailable; skipping tweet generation.{C_RESET}")

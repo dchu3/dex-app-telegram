@@ -27,7 +27,7 @@ This Python script is a command-line tool and interactive Telegram bot that iden
 - **Multi-Source Data:** Uses a combination of DexScreener, Etherscan, Blockscout (for Base chain), and CoinGecko to ensure data accuracy and reliability.
 - **Asynchronous & Robust:** Uses `asyncio` and `aiohttp` for efficient, non-blocking network requests with proper rate-limiting.
 - **Configurable:** Allows users to set various parameters such as chains, tokens, scan interval, and profitability thresholds.
-- **Twitter Integration:** Optionally post generated signals to a configured Twitter account.
+- **Twitter Integration:** Optionally post generated signals to a configured Twitter account once the momentum score clears a configurable floor.
 - **Optional Auto-Trade:** Experimental hook can prepare Aerodrome ↔ Uniswap swaps when enabled.
 
 ## How It Works
@@ -69,6 +69,8 @@ Base-chain scans are limited to Aerodrome/Uniswap to ensure sufficient depth.
 ./start_simple.sh
 ```
 
+Add `--enable-twitter` when running this profile if you also want tweets; pair it with `--min-tweet-momentum-score` to override the default 7.0 momentum floor.
+
 ## Data Persistence
 
 Momentum alerts that pass the Telegram filters are archived in `data/momentum_history.db`, a lightweight SQLite database created on startup. Each entry stores the opportunity snapshot alongside the short-term momentum breakdown (volume divergence, persistence, RSI, 5-minute surge stats), making it easy to analyse historical signals or adapt thresholds later. Delete the file if you want a clean slate; it is recreated automatically.
@@ -83,7 +85,7 @@ python main.py --show-momentum --momentum-limit 20
 
 ### Aggressive Mode Integration Test
 
-Run `./start_aggressive.sh --integration-test` to enable relaxed liquidity/volume thresholds and keep AI copy on—ideal for validating the pipeline against thinner Base liquidity. Add `--no-ai` if you need to silence Gemini output during tests.
+Run `./start_aggressive.sh --integration-test` to enable relaxed liquidity/volume thresholds and keep AI copy on—ideal for validating the pipeline against thinner Base liquidity. Add `--enable-twitter` to surface tweets (momentum score ≥ configured floor) or `--no-ai` if you need to silence Gemini output during tests.
 
 ### Automated Trading (Experimental)
 
@@ -138,6 +140,7 @@ pip install -r requirements.txt
         export TWITTER_ACCESS_TOKEN='YourAccessToken'
         export TWITTER_ACCESS_TOKEN_SECRET='YourAccessTokenSecret'
         ```
+    -   Tweets only fire when both Twitter is enabled and the momentum score meets the configurable floor (default 7.0).
 
 6.  **Trading Private Key (Optional):**
     -   Required only when using `--auto-trade`.
@@ -172,6 +175,7 @@ python main.py --chain base --token AERO --telegram-enabled --scanner-enabled
 -   `--min-profit`: Minimum net USD profit required for multi-leg opportunities (default: 0.0).
 -   `--telegram-enabled`: Enable Telegram notifications.
 -   `--twitter-enabled`: Enable Twitter notifications.
+-   `--min-tweet-momentum-score`: Minimum momentum score required before a tweet is posted (default: 7.0).
 -   `--alert-cooldown`: Cooldown in seconds before re-alerting for the same opportunity (default: 3600).
 -   `--scanner-enabled`: Enable the background arbitrage scanner.
 -   `--disable-ai-analysis`: Skip Gemini calls and omit AI-generated content from alerts and tweets.

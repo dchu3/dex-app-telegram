@@ -29,6 +29,7 @@ class AppConfig(NamedTuple):
     gemini_api_key: str | None
     ai_analysis_enabled: bool
     twitter_enabled: bool
+    min_tweet_momentum_score: float
     twitter_api_key: str | None
     twitter_api_secret: str | None
     twitter_access_token: str | None
@@ -75,6 +76,7 @@ def load_config() -> AppConfig:
     parser.add_argument('--min-profit', type=float, default=0.0, help='Minimum net profit in USD required for multi-leg opportunities (default: 0.0).')
     parser.add_argument('--telegram-enabled', action='store_true', help='Enable Telegram notifications.')
     parser.add_argument('--twitter-enabled', action='store_true', help='Enable Twitter notifications.')
+    parser.add_argument('--min-tweet-momentum-score', type=float, default=7.0, help='Minimum momentum score required to send a tweet (default: 7.0).')
     parser.add_argument('--alert-cooldown', type=int, default=3600, help='Cooldown in seconds before re-alerting for the same opportunity (default: 3600).')
     parser.add_argument('--scanner-enabled', action='store_true', help='Enable the background arbitrage scanner.')
     parser.add_argument('--disable-ai-analysis', action='store_true', help='Disable AI-generated analysis for alerts and social posts.')
@@ -153,6 +155,7 @@ def load_config() -> AppConfig:
         min_profit=args.min_profit,
         telegram_enabled=args.telegram_enabled,
         twitter_enabled=args.twitter_enabled,
+        min_tweet_momentum_score=args.min_tweet_momentum_score,
         alert_cooldown=args.alert_cooldown,
         etherscan_api_key=etherscan_api_key or "",
         telegram_bot_token=telegram_bot_token,
