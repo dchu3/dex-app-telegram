@@ -30,7 +30,7 @@ class TestTwitterClient(unittest.TestCase):
             telegram_bot_token=None, telegram_chat_id=None, coingecko_api_key=None,
             gemini_api_key=None, ai_analysis_enabled=True, multi_leg=False, max_cycle_length=3, max_depth=2,
             scanner_enabled=False,
-            min_tweet_momentum_score=7.0,
+            min_tweet_momentum_score=6.0,
             show_momentum=False,
             momentum_limit=10,
             momentum_token=None,

@@ -69,7 +69,7 @@ Base-chain scans are limited to Aerodrome/Uniswap to ensure sufficient depth.
 ./start_simple.sh
 ```
 
-Add `--enable-twitter` when running this profile if you also want tweets; pair it with `--min-tweet-momentum-score` to override the default 7.0 momentum floor.
+Add `--enable-twitter` when running this profile if you also want tweets; pair it with `--min-tweet-momentum-score` to override the default 6.0 momentum floor.
 
 ## Data Persistence
 
@@ -140,7 +140,7 @@ pip install -r requirements.txt
         export TWITTER_ACCESS_TOKEN='YourAccessToken'
         export TWITTER_ACCESS_TOKEN_SECRET='YourAccessTokenSecret'
         ```
-    -   Tweets only fire when both Twitter is enabled and the momentum score meets the configurable floor (default 7.0).
+    -   Tweets only fire when both Twitter is enabled and the momentum score meets the configurable floor (default 6.0).
 
 6.  **Trading Private Key (Optional):**
     -   Required only when using `--auto-trade`.
@@ -175,7 +175,7 @@ python main.py --chain base --token AERO --telegram-enabled --scanner-enabled
 -   `--min-profit`: Minimum net USD profit required for multi-leg opportunities (default: 0.0).
 -   `--telegram-enabled`: Enable Telegram notifications.
 -   `--twitter-enabled`: Enable Twitter notifications.
--   `--min-tweet-momentum-score`: Minimum momentum score required before a tweet is posted (default: 7.0).
+-   `--min-tweet-momentum-score`: Minimum momentum score required before a tweet is posted (default: 6.0).
 -   `--alert-cooldown`: Cooldown in seconds before re-alerting for the same opportunity (default: 3600).
 -   `--scanner-enabled`: Enable the background arbitrage scanner.
 -   `--disable-ai-analysis`: Skip Gemini calls and omit AI-generated content from alerts and tweets.

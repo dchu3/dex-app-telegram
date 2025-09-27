@@ -26,7 +26,7 @@ def mock_config():
         min_profit=0.0,
         telegram_enabled=True,
         twitter_enabled=False,
-        min_tweet_momentum_score=7.0,
+        min_tweet_momentum_score=6.0,
         alert_cooldown=0,
         etherscan_api_key='mock_key',
         telegram_bot_token='mock_token',
@@ -251,11 +251,11 @@ async def test_rsi_falls_back_to_history(mock_calculate_momentum_score, scanner,
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
 async def test_tweet_skipped_when_below_threshold(mock_calculate_momentum_score, scanner, mock_application):
-    mock_calculate_momentum_score.return_value = (6.5, "Solid momentum")
+    mock_calculate_momentum_score.return_value = (5.5, "Solid momentum")
     scanner.config = scanner.config._replace(
         twitter_enabled=True,
         gemini_api_key='mock_key',
-        min_tweet_momentum_score=7.0,
+        min_tweet_momentum_score=6.0,
     )
 
     with patch.object(scanner, '_load_recent_momentum_history', AsyncMock(return_value=[])), \
@@ -270,11 +270,11 @@ async def test_tweet_skipped_when_below_threshold(mock_calculate_momentum_score,
 @pytest.mark.asyncio
 @patch('scanner.calculate_momentum_score')
 async def test_tweet_sent_when_above_threshold(mock_calculate_momentum_score, scanner, mock_application):
-    mock_calculate_momentum_score.return_value = (7.5, "High momentum")
+    mock_calculate_momentum_score.return_value = (6.5, "High momentum")
     scanner.config = scanner.config._replace(
         twitter_enabled=True,
         gemini_api_key='mock_key',
-        min_tweet_momentum_score=7.0,
+        min_tweet_momentum_score=6.0,
     )
 
     with patch.object(scanner, '_load_recent_momentum_history', AsyncMock(return_value=[])), \

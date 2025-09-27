@@ -38,7 +38,7 @@ def test_min_momentum_score_bullish_parsing(monkeypatch):
         min_profit=0.0,
         telegram_enabled=False,
         twitter_enabled=False,
-        min_tweet_momentum_score=7.0,
+        min_tweet_momentum_score=6.0,
         alert_cooldown=3600,
         multi_leg=False,
         max_cycle_length=3,
@@ -85,7 +85,7 @@ def test_min_momentum_score_default_values(monkeypatch):
         min_profit=0.0,
         telegram_enabled=False,
         twitter_enabled=False,
-        min_tweet_momentum_score=7.0,
+        min_tweet_momentum_score=6.0,
         alert_cooldown=3600,
         multi_leg=False,
         max_cycle_length=3,
@@ -107,3 +107,4 @@ def test_min_momentum_score_default_values(monkeypatch):
     config = load_config()
     assert config.min_momentum_score_bullish == 0.0
     assert config.min_momentum_score_bearish == 0.0
+    assert config.min_tweet_momentum_score == 6.0

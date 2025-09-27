@@ -76,7 +76,7 @@ def load_config() -> AppConfig:
     parser.add_argument('--min-profit', type=float, default=0.0, help='Minimum net profit in USD required for multi-leg opportunities (default: 0.0).')
     parser.add_argument('--telegram-enabled', action='store_true', help='Enable Telegram notifications.')
     parser.add_argument('--twitter-enabled', action='store_true', help='Enable Twitter notifications.')
-    parser.add_argument('--min-tweet-momentum-score', type=float, default=7.0, help='Minimum momentum score required to send a tweet (default: 7.0).')
+    parser.add_argument('--min-tweet-momentum-score', type=float, default=6.0, help='Minimum momentum score required to send a tweet (default: 6.0).')
     parser.add_argument('--alert-cooldown', type=int, default=3600, help='Cooldown in seconds before re-alerting for the same opportunity (default: 3600).')
     parser.add_argument('--scanner-enabled', action='store_true', help='Enable the background arbitrage scanner.')
     parser.add_argument('--disable-ai-analysis', action='store_true', help='Disable AI-generated analysis for alerts and social posts.')
