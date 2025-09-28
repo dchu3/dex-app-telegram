@@ -34,6 +34,10 @@ class AppConfig(NamedTuple):
     twitter_api_secret: str | None
     twitter_access_token: str | None
     twitter_access_token_secret: str | None
+    twitter_client_id: str | None
+    twitter_client_secret: str | None
+    twitter_oauth2_access_token: str | None
+    twitter_oauth2_refresh_token: str | None
     multi_leg: bool
     max_cycle_length: int
     max_depth: int
@@ -49,6 +53,10 @@ class AppConfig(NamedTuple):
     trade_wallet_address: str | None
     trade_max_slippage: float
     trading_private_key: str | None
+    onchain_validation_enabled: bool
+    onchain_validation_rpc_url: str | None
+    onchain_validation_max_pct_diff: float
+    onchain_validation_timeout: float
 
 
 def load_config() -> AppConfig:
@@ -80,6 +88,10 @@ def load_config() -> AppConfig:
     parser.add_argument('--alert-cooldown', type=int, default=3600, help='Cooldown in seconds before re-alerting for the same opportunity (default: 3600).')
     parser.add_argument('--scanner-enabled', action='store_true', help='Enable the background arbitrage scanner.')
     parser.add_argument('--disable-ai-analysis', action='store_true', help='Disable AI-generated analysis for alerts and social posts.')
+    parser.add_argument('--enable-onchain-validation', action='store_true', help='Validate DEX prices against on-chain reserves via MCP RPC.')
+    parser.add_argument('--onchain-validation-rpc-url', type=str, help='Override MCP RPC endpoint for on-chain validation (fallback to ONCHAIN_VALIDATION_RPC_URL env var).')
+    parser.add_argument('--onchain-validation-max-diff', type=float, default=constants.ONCHAIN_VALIDATION_DEFAULT_MAX_DIFF_PCT, help='Maximum allowed percentage difference between API price and on-chain price before rejecting (default: %(default)s).')
+    parser.add_argument('--onchain-validation-timeout', type=float, default=constants.ONCHAIN_VALIDATION_DEFAULT_TIMEOUT, help='Timeout in seconds for MCP RPC calls (default: %(default)s).')
 
     # --- Multi-Leg Arguments ---
     parser.add_argument('--multi-leg', action='store_true', help='Enable multi-leg (triangular) arbitrage scanning.')
@@ -106,11 +118,21 @@ def load_config() -> AppConfig:
     telegram_bot_token = os.environ.get(constants.TELEGRAM_BOT_TOKEN_ENV_VAR)
     telegram_chat_id = os.environ.get(constants.TELEGRAM_CHAT_ID_ENV_VAR)
     coingecko_api_key = os.environ.get(constants.COINGECKO_API_KEY_ENV_VAR)
+    onchain_validation_rpc_url = args.onchain_validation_rpc_url or os.environ.get(constants.ONCHAIN_VALIDATION_RPC_URL_ENV_VAR)
     gemini_api_key = os.environ.get("GEMINI_API_KEY")
     twitter_api_key = os.environ.get(constants.TWITTER_API_KEY_ENV_VAR)
     twitter_api_secret = os.environ.get(constants.TWITTER_API_SECRET_ENV_VAR)
     twitter_access_token = os.environ.get(constants.TWITTER_ACCESS_TOKEN_ENV_VAR)
     twitter_access_token_secret = os.environ.get(constants.TWITTER_ACCESS_TOKEN_SECRET_ENV_VAR)
+    twitter_client_id = os.environ.get(constants.TWITTER_CLIENT_ID_ENV_VAR)
+    twitter_client_secret = os.environ.get(constants.TWITTER_CLIENT_ID_SECRET_ENV_VAR)
+    twitter_oauth2_access_token = os.environ.get(constants.TWITTER_OAUTH2_ACCESS_TOKEN_ENV_VAR)
+    twitter_oauth2_refresh_token = os.environ.get(constants.TWITTER_OAUTH2_REFRESH_TOKEN_ENV_VAR)
+
+    if not twitter_api_key or not twitter_api_secret:
+        if twitter_client_id and twitter_client_secret:
+            twitter_api_key = twitter_api_key or twitter_client_id
+            twitter_api_secret = twitter_api_secret or twitter_client_secret
 
     ai_analysis_env = os.environ.get(constants.AI_ANALYSIS_ENABLED_ENV_VAR)
     ai_analysis_enabled = not args.disable_ai_analysis
@@ -125,9 +147,25 @@ def load_config() -> AppConfig:
         print(f"{constants.C_RED}Telegram is enabled, but {constants.TELEGRAM_BOT_TOKEN_ENV_VAR} or {constants.TELEGRAM_CHAT_ID_ENV_VAR} are not set.{constants.C_RESET}")
         exit(1)
 
-    if args.twitter_enabled and not (twitter_api_key and twitter_api_secret and twitter_access_token and twitter_access_token_secret):
-        print(f"{constants.C_RED}Twitter is enabled, but one or more Twitter API environment variables are not set.{constants.C_RESET}")
+    oauth1_ready = all([twitter_api_key, twitter_api_secret, twitter_access_token, twitter_access_token_secret])
+    oauth2_ready = all([twitter_client_id, twitter_client_secret, twitter_oauth2_access_token])
+
+    if args.twitter_enabled and not (oauth1_ready or oauth2_ready):
+        print(
+            f"{constants.C_RED}Twitter is enabled, but the required OAuth credentials are incomplete. Provide either the OAuth1 set (API key/secret + access token/secret) or the OAuth2 set (client ID/secret + user access token).{constants.C_RESET}"
+        )
         exit(1)
+
+    if (
+        args.twitter_enabled
+        and not os.environ.get(constants.TWITTER_API_KEY_ENV_VAR)
+        and not os.environ.get(constants.TWITTER_API_SECRET_ENV_VAR)
+        and twitter_client_id
+        and twitter_client_secret
+    ):
+        print(
+            f"{constants.C_YELLOW}Using TWITTER_CLIENT_ID / TWITTER_CLIENT_ID_SECRET as fallbacks for consumer key/secret.{constants.C_RESET}"
+        )
 
     trading_private_key = os.environ.get('TRADING_PRIVATE_KEY')
     if args.auto_trade:
@@ -167,6 +205,10 @@ def load_config() -> AppConfig:
         twitter_api_secret=twitter_api_secret,
         twitter_access_token=twitter_access_token,
         twitter_access_token_secret=twitter_access_token_secret,
+        twitter_client_id=twitter_client_id,
+        twitter_client_secret=twitter_client_secret,
+        twitter_oauth2_access_token=twitter_oauth2_access_token,
+        twitter_oauth2_refresh_token=twitter_oauth2_refresh_token,
         multi_leg=args.multi_leg,
         max_cycle_length=args.max_cycle_length,
         max_depth=args.max_depth,
@@ -182,4 +224,8 @@ def load_config() -> AppConfig:
         trade_wallet_address=args.trade_wallet_address,
         trade_max_slippage=args.trade_max_slippage,
         trading_private_key=trading_private_key,
+        onchain_validation_enabled=args.enable_onchain_validation,
+        onchain_validation_rpc_url=onchain_validation_rpc_url,
+        onchain_validation_max_pct_diff=args.onchain_validation_max_diff,
+        onchain_validation_timeout=args.onchain_validation_timeout,
     )

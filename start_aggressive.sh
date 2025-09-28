@@ -22,6 +22,8 @@ source venv/bin/activate
 INTEGRATION_TEST=false
 NO_AI=false
 ENABLE_TWITTER=false
+ENABLE_ONCHAIN=false
+ONCHAIN_RPC_URL=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +38,17 @@ while [[ $# -gt 0 ]]; do
       ;;
     --disable-twitter)
       ENABLE_TWITTER=false
+      ;;
+    --enable-onchain-validation)
+      ENABLE_ONCHAIN=true
+      ;;
+    --onchain-validation-rpc-url)
+      if [[ -z "$2" ]]; then
+        echo "Missing value for --onchain-validation-rpc-url"
+        exit 1
+      fi
+      ONCHAIN_RPC_URL="$2"
+      shift
       ;;
     *)
       echo "Unknown flag: $1"
@@ -69,6 +82,13 @@ fi
 
 if [[ "$ENABLE_TWITTER" == true ]]; then
   EXTRA_FLAGS+=("--twitter-enabled")
+fi
+
+if [[ "$ENABLE_ONCHAIN" == true ]]; then
+  EXTRA_FLAGS+=("--enable-onchain-validation")
+  if [[ -n "$ONCHAIN_RPC_URL" ]]; then
+    EXTRA_FLAGS+=("--onchain-validation-rpc-url" "$ONCHAIN_RPC_URL")
+  fi
 fi
 
 # Run the bot with single-leg arbitrage defaults

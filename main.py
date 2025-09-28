@@ -24,6 +24,7 @@ from services.blockscout_client import BlockscoutClient
 from services.gemini_client import GeminiClient
 from services.twitter_client import TwitterClient
 from services.trade_executor import TradeExecutor
+from services.onchain_price_validator import OnChainPriceValidator
 from storage import SQLiteRepository
 
 async def post_init_hook(application: Application) -> None:
@@ -69,6 +70,29 @@ async def post_init_hook(application: Application) -> None:
             exit(1)
     application.bot_data['trade_executor'] = trade_executor
 
+    onchain_validator = None
+    if config.onchain_validation_enabled:
+        if not config.onchain_validation_rpc_url:
+            print(
+                f"{constants.C_YELLOW}On-chain validation enabled but no RPC URL provided; falling back to API prices only.{constants.C_RESET}"
+            )
+        else:
+            try:
+                onchain_validator = OnChainPriceValidator(
+                    session,
+                    rpc_url=config.onchain_validation_rpc_url,
+                    max_pct_diff=config.onchain_validation_max_pct_diff,
+                    timeout=config.onchain_validation_timeout,
+                    common_token_addresses=constants.COMMON_TOKEN_ADDRESSES,
+                )
+                print("On-chain price validator initialised.")
+            except Exception as exc:
+                print(
+                    f"{constants.C_RED}Failed to initialise on-chain validator: {exc}. Continuing without validation.{constants.C_RESET}"
+                )
+                onchain_validator = None
+    application.bot_data['onchain_validator'] = onchain_validator
+
     # Set bot commands
     commands = [
         BotCommand("status", "Check bot status"),
@@ -98,6 +122,7 @@ async def post_init_hook(application: Application) -> None:
             application.bot_data['twitter_client'],
             application.bot_data.get('repository'),
             application.bot_data.get('trade_executor'),
+            application.bot_data.get('onchain_validator'),
         )
         scanner_task = asyncio.create_task(scanner.start())
         application.bot_data['scanner_task'] = scanner_task

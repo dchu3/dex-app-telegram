@@ -71,22 +71,30 @@ class OpportunityAnalyzer:
             base_sym = pair['baseToken']['symbol'].lower()
             quote_sym = pair['quoteToken']['symbol'].lower()
 
+            base_token_address_raw = pair.get('baseToken', {}).get('address')
+            quote_token_address_raw = pair.get('quoteToken', {}).get('address')
+
             try:
                 base_price_usd = float(pair['priceUsd'])
                 price_native = float(pair['priceNative'])
             except (ValueError, TypeError):
                 continue
 
+            pair_address = pair.get('pairAddress')
+            target_token_address = None
+            counter_token_address = None
             if base_sym == target_lower:
                 target_price_usd = base_price_usd
                 pair_name = f"{pair['baseToken']['symbol']}/{pair['quoteToken']['symbol']}"
-                base_token_address = pair['baseToken']['address']
+                target_token_address = base_token_address_raw
+                counter_token_address = quote_token_address_raw
             elif quote_sym == target_lower:
                 if price_native == 0:
                     continue
                 target_price_usd = base_price_usd / price_native
                 pair_name = f"{pair['baseToken']['symbol']}/{pair['quoteToken']['symbol']}"
-                base_token_address = pair['quoteToken']['address']
+                target_token_address = quote_token_address_raw
+                counter_token_address = base_token_address_raw
             else:
                 continue
 
@@ -97,9 +105,12 @@ class OpportunityAnalyzer:
                 'volume_24h': vol_24h,
                 'volume_m5': vol_m5,
                 'txns_m5_total': txns_m5_total,
-                'base_token_address': base_token_address,
+                'base_token_address': target_token_address,
+                'target_token_address': target_token_address,
+                'counter_token_address': counter_token_address,
                 'price_change_h1': pair.get('priceChange', {}).get('h1'),
                 'is_early_momentum': is_early_momentum,
+                'pair_address': pair_address,
             })
 
         for pair_name, prices in sorted(prices_by_pair.items()):
@@ -216,6 +227,17 @@ class OpportunityAnalyzer:
                         short_term_volume_ratio=self._calculate_short_term_volume_ratio(buy_option, sell_option),
                         short_term_txns_total=buy_option.get('txns_m5_total', 0) + sell_option.get('txns_m5_total', 0),
                         is_early_momentum=bool(opportunity_is_early),
+                        buy_pair_address=buy_option.get('pair_address'),
+                        sell_pair_address=sell_option.get('pair_address'),
+                        quote_token_address=(
+                            buy_option.get('counter_token_address')
+                            if buy_option.get('counter_token_address') == sell_option.get('counter_token_address')
+                            else None
+                        ),
+                        buy_token_address=buy_option.get('target_token_address'),
+                        sell_token_address=sell_option.get('target_token_address'),
+                        buy_counter_token_address=buy_option.get('counter_token_address'),
+                        sell_counter_token_address=sell_option.get('counter_token_address'),
                     ))
 
         return opportunities

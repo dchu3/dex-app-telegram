@@ -26,6 +26,7 @@ from services.coingecko_client import CoinGeckoClient
 from services.gemini_client import GeminiClient
 from services.twitter_client import TwitterClient
 from services.trade_executor import TradeExecutor
+from services.onchain_price_validator import OnChainPriceValidator, PairValidationResult
 from momentum_indicator import calculate_momentum_score
 import analysis.multi_leg_analyzer as mla
 from storage import SQLiteRepository
@@ -43,6 +44,7 @@ class ArbitrageScanner:
         twitter_client: Optional["TwitterClient"],
         repository: Optional[SQLiteRepository] = None,
         trade_executor: Optional[TradeExecutor] = None,
+        onchain_validator: Optional[OnChainPriceValidator] = None,
     ):
         self.config = config
         self.application = application
@@ -62,6 +64,7 @@ class ArbitrageScanner:
         self.trade_executor = trade_executor
         self._current_scan_cycle_id: Optional[int] = None
         self._alerts_dispatched_in_cycle: int = 0
+        self.onchain_validator = onchain_validator
 
     async def start(self):
         """Initializes clients and starts the main scanning loop."""
@@ -175,12 +178,126 @@ class ArbitrageScanner:
             opportunities = self.analyzer.find_opportunities(
                 api_data, token_symbol, native_price, gas_price, chain_name
             )
+            if (
+                opportunities
+                and self.config.onchain_validation_enabled
+                and self.onchain_validator is not None
+            ):
+                await self._apply_onchain_validation(
+                    opportunities,
+                    native_price,
+                    chain_name,
+                )
             if not opportunities:
                 print(f"No profitable opportunities found for {token_symbol.upper()} on {chain_name.capitalize()}")
             return opportunities
         except Exception as e:
             print(f"{C_RED}Error scanning token {token_symbol.upper()} on {chain_name}: {e}{C_RESET}")
             return []
+
+    async def _apply_onchain_validation(
+        self,
+        opportunities: List[ArbitrageOpportunity],
+        native_price_usd: float,
+        chain_name: str,
+    ) -> None:
+        """Augments opportunities with on-chain validation results via MCP."""
+        validator = self.onchain_validator
+        if validator is None:
+            return
+
+        for opportunity in opportunities:
+            buy_result: Optional[PairValidationResult] = None
+            sell_result: Optional[PairValidationResult] = None
+
+            try:
+                if opportunity.buy_pair_address:
+                    buy_result = await validator.validate_pair_price(
+                        chain_name=chain_name,
+                        pair_address=opportunity.buy_pair_address,
+                        target_token_address=opportunity.buy_token_address or opportunity.base_token_address,
+                        counter_token_address=opportunity.buy_counter_token_address,
+                        dex_price_usd=opportunity.buy_price,
+                        native_price_usd=native_price_usd,
+                    )
+            except Exception as exc:  # pragma: no cover - defensive
+                opportunity.buy_onchain_error = f"validator_error:{exc}"
+
+            try:
+                if opportunity.sell_pair_address:
+                    sell_result = await validator.validate_pair_price(
+                        chain_name=chain_name,
+                        pair_address=opportunity.sell_pair_address,
+                        target_token_address=opportunity.sell_token_address or opportunity.base_token_address,
+                        counter_token_address=opportunity.sell_counter_token_address,
+                        dex_price_usd=opportunity.sell_price,
+                        native_price_usd=native_price_usd,
+                    )
+            except Exception as exc:  # pragma: no cover - defensive
+                opportunity.sell_onchain_error = f"validator_error:{exc}"
+
+            self._update_opportunity_with_validation(
+                opportunity,
+                buy_result,
+                sell_result,
+            )
+
+    def _update_opportunity_with_validation(
+        self,
+        opportunity: ArbitrageOpportunity,
+        buy_result: Optional[PairValidationResult],
+        sell_result: Optional[PairValidationResult],
+    ) -> None:
+        """Stores validation metadata on the opportunity and sets a status label."""
+        validated_states = []
+        failure_reasons: List[str] = []
+        block_numbers: List[int] = []
+
+        if buy_result:
+            opportunity.buy_onchain_price_usd = buy_result.price_usd
+            opportunity.buy_onchain_diff_pct = buy_result.diff_pct
+            if buy_result.error:
+                opportunity.buy_onchain_error = buy_result.error
+            if buy_result.block_number is not None:
+                block_numbers.append(buy_result.block_number)
+            if buy_result.validated:
+                validated_states.append('passed' if buy_result.passed else 'failed')
+                if not buy_result.passed and buy_result.error:
+                    failure_reasons.append(f"buy:{buy_result.error}")
+            elif buy_result.error:
+                failure_reasons.append(f"buy:{buy_result.error}")
+
+        if sell_result:
+            opportunity.sell_onchain_price_usd = sell_result.price_usd
+            opportunity.sell_onchain_diff_pct = sell_result.diff_pct
+            if sell_result.error:
+                opportunity.sell_onchain_error = sell_result.error
+            if sell_result.block_number is not None:
+                block_numbers.append(sell_result.block_number)
+            if sell_result.validated:
+                validated_states.append('passed' if sell_result.passed else 'failed')
+                if not sell_result.passed and sell_result.error:
+                    failure_reasons.append(f"sell:{sell_result.error}")
+            elif sell_result.error:
+                failure_reasons.append(f"sell:{sell_result.error}")
+
+        if 'failed' in validated_states:
+            opportunity.onchain_validation_status = 'failed'
+        elif validated_states:
+            if all(state == 'passed' for state in validated_states):
+                opportunity.onchain_validation_status = 'passed'
+            else:
+                opportunity.onchain_validation_status = 'partial'
+        elif failure_reasons:
+            opportunity.onchain_validation_status = 'skipped'
+        else:
+            opportunity.onchain_validation_status = None
+
+        if failure_reasons:
+            opportunity.onchain_validation_failure_reason = ';'.join(failure_reasons)
+
+        if block_numbers:
+            opportunity.onchain_block_number = max(block_numbers)
 
     async def _scan_chain_multi_leg(self, chain_name: str) -> List[MultiLegArbitrageOpportunity]:
         """Runs a multi-leg arbitrage scan on a chain."""
