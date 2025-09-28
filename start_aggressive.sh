@@ -21,6 +21,9 @@ source venv/bin/activate
 # Detect optional flags
 INTEGRATION_TEST=false
 NO_AI=false
+ENABLE_TWITTER=false
+ENABLE_ONCHAIN=false
+ONCHAIN_RPC_URL=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,6 +32,23 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-ai)
       NO_AI=true
+      ;;
+    --enable-twitter)
+      ENABLE_TWITTER=true
+      ;;
+    --disable-twitter)
+      ENABLE_TWITTER=false
+      ;;
+    --enable-onchain-validation)
+      ENABLE_ONCHAIN=true
+      ;;
+    --onchain-validation-rpc-url)
+      if [[ -z "$2" ]]; then
+        echo "Missing value for --onchain-validation-rpc-url"
+        exit 1
+      fi
+      ONCHAIN_RPC_URL="$2"
+      shift
       ;;
     *)
       echo "Unknown flag: $1"
@@ -60,11 +80,22 @@ if [[ "$NO_AI" == true ]]; then
   EXTRA_FLAGS+=("--disable-ai-analysis")
 fi
 
+if [[ "$ENABLE_TWITTER" == true ]]; then
+  EXTRA_FLAGS+=("--twitter-enabled")
+fi
+
+if [[ "$ENABLE_ONCHAIN" == true ]]; then
+  EXTRA_FLAGS+=("--enable-onchain-validation")
+  if [[ -n "$ONCHAIN_RPC_URL" ]]; then
+    EXTRA_FLAGS+=("--onchain-validation-rpc-url" "$ONCHAIN_RPC_URL")
+  fi
+fi
+
 # Run the bot with single-leg arbitrage defaults
 echo "🚀 Starting DEX Momentum Signal Bot (aggressive mode)..."
 python main.py \
   --chain base \
-  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH  AAVE PENDLE PENGU \
+  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH  AAVE PENDLE \
   --scanner-enabled \
   --telegram-enabled \
   --trade-volume 250 \
@@ -76,7 +107,7 @@ python main.py \
   --min-momentum-score-bearish ${MIN_SCORE} \
   --min-liquidity ${MIN_LIQUIDITY} \
   --min-volume ${MIN_VOLUME} \
-  --min-txns-h1 10 \
+  --min-txns-h1 100 \
   --interval 30 \
   --alert-cooldown 900 \
   ${EXTRA_FLAGS[@]}

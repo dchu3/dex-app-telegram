@@ -18,23 +18,50 @@ source venv/bin/activate
 # export TELEGRAM_CHAT_ID="YourTelegramChatID"
 # export COINGECKO_API_KEY="YourCoinGeckoKey"
 
+# Detect optional flags
+ENABLE_TWITTER=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --enable-twitter)
+      ENABLE_TWITTER=true
+      ;;
+    --disable-twitter)
+      ENABLE_TWITTER=false
+      ;;
+    *)
+      echo "Unknown flag: $1"
+      exit 1
+      ;;
+  esac
+  shift
+done
+
 # Run the bot with single-leg arbitrage defaults
 echo "🚀 Starting DEX Momentum Signal Bot (simple mode)..."
-python main.py \
-  --chain base \
-  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH SAPIEN RFG MIRROR SOSO PIKACHU BIO AUBRAI KTA DINO EDGE BID HYPE FACY GIZA RETAKE REI FLOCK MAMO AIXBT DEGEN VVV TOSHI AAVE SPX KEYCAT PENGU \
-  --scanner-enabled \
-  --telegram-enabled \
-  --trade-volume 500 \
-  --dex-fee 0.3 \
-  --slippage 0.4 \
-  --min-bullish-profit 1.0 \
-  --min-bearish-discrepancy 1.0 \
-  --min-momentum-score-bullish 3 \
-  --min-momentum-score-bearish 3 \
-  --min-liquidity 400000 \
-  --min-volume 50000 \
-  --min-txns-h1 3 \
-  --interval 20 \
-  --alert-cooldown 1800 \
+CMD=(
+  python main.py
+  --chain base
+  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH SAPIEN RFG MIRROR SOSO PIKACHU BIO AUBRAI KTA DINO EDGE BID HYPE FACY GIZA RETAKE REI FLOCK MAMO AIXBT DEGEN VVV TOSHI AAVE SPX KEYCAT PENGU
+  --scanner-enabled
+  --telegram-enabled
+  --trade-volume 500
+  --dex-fee 0.3
+  --slippage 0.4
+  --min-bullish-profit 1.0
+  --min-bearish-discrepancy 1.0
+  --min-momentum-score-bullish 3
+  --min-momentum-score-bearish 3
+  --min-liquidity 400000
+  --min-volume 50000
+  --min-txns-h1 3
+  --interval 20
+  --alert-cooldown 1800
   --limit-base-dexes
+)
+
+if [[ "$ENABLE_TWITTER" == true ]]; then
+  CMD+=(--twitter-enabled)
+fi
+
+"${CMD[@]}"

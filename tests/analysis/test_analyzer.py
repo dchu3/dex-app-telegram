@@ -32,6 +32,7 @@ def config():
         gemini_api_key=None,
         ai_analysis_enabled=True,
         twitter_enabled=False,
+        min_tweet_momentum_score=6.0,
         twitter_api_key=None,
         twitter_api_secret=None,
         twitter_access_token=None,
@@ -51,6 +52,14 @@ def config():
         trade_wallet_address=None,
         trade_max_slippage=1.0,
         trading_private_key=None,
+        twitter_client_id=None,
+        twitter_client_secret=None,
+        twitter_oauth2_access_token=None,
+        twitter_oauth2_refresh_token=None,
+        onchain_validation_enabled=False,
+        onchain_validation_rpc_url=None,
+        onchain_validation_max_pct_diff=5.0,
+        onchain_validation_timeout=8.0,
     )
 
 # def test_profitable_opportunity(config):

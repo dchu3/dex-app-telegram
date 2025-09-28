@@ -1,4 +1,5 @@
 # momentum_indicator.py
+import math
 from typing import List, Optional
 
 
@@ -49,7 +50,7 @@ def calculate_rsi(prices: List[float], period: int = 14) -> Optional[float]:
 def calculate_momentum_score(
     volume_divergence: float,
     persistence_count: int,
-    rsi_value: int,
+    rsi_value: float,
     dominant_dex_has_lower_price: bool
 ) -> (float, str):
     """
@@ -59,7 +60,7 @@ def calculate_momentum_score(
         volume_divergence (float): The ratio of trading volume between two DEXs.
                                    (e.g., 2.5 means one DEX has 2.5x the volume of the other).
         persistence_count (int): The number of times the opportunity has been detected recently.
-        rsi_value (int): The Relative Strength Index (RSI) value of the asset.
+        rsi_value (float): The Relative Strength Index (RSI) value of the asset.
         dominant_dex_has_lower_price (bool): True if the DEX with higher volume has the lower price.
 
     Returns:
@@ -72,40 +73,41 @@ def calculate_momentum_score(
     # as smart money might be accumulating there before the price corrects upwards.
     # Conversely, if the dominant DEX has a higher price, it could signal a downward trend
     # as traders might be selling off there.
-    direction = "Upward" if dominant_dex_has_lower_price else "Downward"
+    direction_is_upward = bool(dominant_dex_has_lower_price)
+    direction = "Upward" if direction_is_upward else "Downward"
 
-    # 2. Calculate Base Score (out of 8 points)
-    # Normalize volume divergence (clamping at a max of 5x for scoring)
-    volume_score = min(volume_divergence, 5.0)  # Max score contribution from volume is 5
+    # 2. Volume component (0-4 pts) – log scaling keeps very high ratios from saturating immediately.
+    if not math.isfinite(volume_divergence) or volume_divergence <= 0:
+        volume_component = 4.0
+    else:
+        capped_volume = min(volume_divergence, 50.0)
+        volume_component = math.log1p(capped_volume) / math.log1p(50.0) * 4.0
 
-    # Normalize persistence count (clamping at a max of 5 detections)
-    persistence_score = min(persistence_count, 5) # Max score contribution from persistence is 5
+    # 3. Persistence component (0-3 pts) – exponential ramp rewards repeated sightings without going linear.
+    clamped_persistence = max(0, min(persistence_count, 12))
+    persistence_component = (1 - math.exp(-clamped_persistence / 2)) * 3.0
 
-    # Weight the scores. We'll consider volume divergence slightly more important.
-    # Max possible base score is (3 * 5/5) + (5 * 5/5) = 8
-    base_score = (0.6 * persistence_score) + (1.0 * volume_score)
+    # 4. Consistency bonus (0-2 pts) – emphasise opportunities where both volume and persistence are strong.
+    consistency_bonus = min(volume_component / 4.0, persistence_component / 3.0) * 2.0
 
-    # 3. Apply RSI Adjustment (+/- 2 points)
-    rsi_adjustment = 0
-    if direction == "Upward":
-        if rsi_value < 30:
-            rsi_adjustment = 2.0  # Bonus: Strong buy signal (oversold)
-        elif rsi_value > 70:
-            rsi_adjustment = -2.0 # Penalty: Potential reversal (overbought)
-    
-    elif direction == "Downward":
-        if rsi_value > 70:
-            rsi_adjustment = 2.0  # Bonus: Strong sell signal (overbought)
-        elif rsi_value < 30:
-            rsi_adjustment = -2.0 # Penalty: Potential reversal (oversold)
+    # 5. RSI alignment (approx -3 to +3 pts) – continuous adjustment with a neutral dead-band.
+    rsi_clamped = max(0.0, min(float(rsi_value), 100.0))
+    neutral_band = 0.15  # ≈ RSI between 42.5-57.5 has no directional impact.
+    alignment = (50.0 - rsi_clamped) / 50.0
+    if not direction_is_upward:
+        alignment *= -1
+    if abs(alignment) <= neutral_band:
+        rsi_component = 0.0
+    else:
+        adjusted_alignment = math.copysign(abs(alignment) - neutral_band, alignment)
+        rsi_component = adjusted_alignment * 2.0
 
-    # 4. Calculate Final Score
-    final_score = base_score + rsi_adjustment
-    
-    # Clamp the final score to a 0-10 scale
-    final_score = max(0, min(final_score, 10))
+    # 6. Combine components and clamp the final score to a 0-10 scale.
+    base_floor = 1.3
+    final_score = base_floor + volume_component + persistence_component + consistency_bonus + rsi_component
+    final_score = max(0.0, min(final_score, 10.0))
 
-    # 5. Generate Interpretation
+    # 7. Generate Interpretation
     interpretation = f"Score: {final_score:.1f}/10 - "
     if final_score >= 8:
         interpretation += f"Very High {direction} Momentum. Potential strong signal."

@@ -44,6 +44,17 @@ class ArbitrageOpportunity:
     quote_token_address: Optional[str] = None
     buy_token_address: Optional[str] = None
     sell_token_address: Optional[str] = None
+    buy_counter_token_address: Optional[str] = None
+    sell_counter_token_address: Optional[str] = None
+    buy_onchain_price_usd: Optional[float] = None
+    sell_onchain_price_usd: Optional[float] = None
+    buy_onchain_diff_pct: Optional[float] = None
+    sell_onchain_diff_pct: Optional[float] = None
+    buy_onchain_error: Optional[str] = None
+    sell_onchain_error: Optional[str] = None
+    onchain_validation_status: Optional[str] = None
+    onchain_validation_failure_reason: Optional[str] = None
+    onchain_block_number: Optional[int] = None
 
 @dataclass
 class MultiLegArbitrageOpportunity:
