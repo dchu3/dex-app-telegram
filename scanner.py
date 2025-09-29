@@ -635,12 +635,17 @@ class ArbitrageScanner:
                 dispatched_at=now,
                 momentum_explanation=momentum_explanation,
                 momentum_history=momentum_history,
+                coingecko_id=coin_id,
             )
             self._alerts_dispatched_in_cycle += 1
             self.alert_cache[opp_key] = now
 
             # --- Twitter Integration ---
-            if self.config.twitter_enabled and self.twitter_client:
+            if (
+                self.config.twitter_enabled
+                and self.config.signal_tweets_enabled
+                and self.twitter_client
+            ):
                 if momentum_score < self.config.min_tweet_momentum_score:
                     print(
                         f"{C_YELLOW}Momentum score {momentum_score:.1f} below tweet threshold "
@@ -719,6 +724,7 @@ class ArbitrageScanner:
         dispatched_at: float,
         momentum_explanation: str | None,
         momentum_history: list[dict],
+        coingecko_id: str | None,
     ) -> None:
         if not self.repository:
             return
@@ -733,6 +739,10 @@ class ArbitrageScanner:
                 "direction": opp.direction,
                 "buy_dex": opp.buy_dex,
                 "sell_dex": opp.sell_dex,
+                "base_token_address": (opp.base_token_address or '').lower() if opp.base_token_address else None,
+                "quote_token_address": (opp.quote_token_address or '').lower() if opp.quote_token_address else None,
+                "buy_pair_address": (opp.buy_pair_address or '').lower() if opp.buy_pair_address else None,
+                "sell_pair_address": (opp.sell_pair_address or '').lower() if opp.sell_pair_address else None,
                 "effective_volume_usd": opp.effective_volume,
                 "gas_cost_usd": opp.gas_cost_usd,
                 "dex_fee_cost_usd": opp.dex_fee_cost,
@@ -745,6 +755,7 @@ class ArbitrageScanner:
                 "blended_rsi": blended_rsi,
                 "dominant_volume_ratio": opp.dominant_volume_ratio,
                 "dominant_flow_side": "buy" if opp.dominant_is_buy_side else "sell",
+                "coingecko_id": coingecko_id,
                 "momentum": {
                     "score": momentum_score,
                     "volume_divergence": volume_divergence_value,

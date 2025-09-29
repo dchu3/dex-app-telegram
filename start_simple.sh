@@ -20,6 +20,8 @@ source venv/bin/activate
 
 # Detect optional flags
 ENABLE_TWITTER=false
+ENABLE_SIGNAL_TWEETS=false
+ENABLE_DAILY_SUMMARY=true
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -28,6 +30,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --disable-twitter)
       ENABLE_TWITTER=false
+      ;;
+    --enable-signal-tweets)
+      ENABLE_SIGNAL_TWEETS=true
+      ;;
+    --disable-daily-summary)
+      ENABLE_DAILY_SUMMARY=false
       ;;
     *)
       echo "Unknown flag: $1"
@@ -60,8 +68,21 @@ CMD=(
   --limit-base-dexes
 )
 
+if [[ "$ENABLE_DAILY_SUMMARY" == true ]]; then
+  CMD+=(--daily-summary-enabled)
+fi
+
 if [[ "$ENABLE_TWITTER" == true ]]; then
   CMD+=(--twitter-enabled)
+  CMD+=(--daily-summary-tweet-enabled)
+  if [[ "$ENABLE_SIGNAL_TWEETS" == true ]]; then
+    CMD+=(--signal-tweets-enabled)
+  fi
+else
+  if [[ "$ENABLE_SIGNAL_TWEETS" == true ]]; then
+    echo "⚠️  Signal tweets require Twitter to be enabled; ignoring --enable-signal-tweets." >&2
+  fi
+  echo "ℹ️  Twitter disabled; no social posts will be attempted."
 fi
 
 "${CMD[@]}"

@@ -264,6 +264,7 @@ async def test_tweet_skipped_when_below_threshold(mock_calculate_momentum_score,
         twitter_enabled=True,
         gemini_api_key='mock_key',
         min_tweet_momentum_score=6.0,
+        signal_tweets_enabled=True,
     )
 
     with patch.object(scanner, '_load_recent_momentum_history', AsyncMock(return_value=[])), \
@@ -283,6 +284,7 @@ async def test_tweet_sent_when_above_threshold(mock_calculate_momentum_score, sc
         twitter_enabled=True,
         gemini_api_key='mock_key',
         min_tweet_momentum_score=6.0,
+        signal_tweets_enabled=True,
     )
 
     with patch.object(scanner, '_load_recent_momentum_history', AsyncMock(return_value=[])), \

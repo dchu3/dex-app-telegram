@@ -27,7 +27,7 @@ This Python script is a command-line tool and interactive Telegram bot that iden
 - **Multi-Source Data:** Uses a combination of DexScreener, Etherscan, Blockscout (for Base chain), and CoinGecko to ensure data accuracy and reliability.
 - **Asynchronous & Robust:** Uses `asyncio` and `aiohttp` for efficient, non-blocking network requests with proper rate-limiting.
 - **Configurable:** Allows users to set various parameters such as chains, tokens, scan interval, and profitability thresholds.
-- **Twitter Integration:** Optionally post generated signals to a configured Twitter account once the momentum score clears a configurable floor.
+- **Twitter Integration:** Optional 08:00 UTC Base-chain summary tweets are enabled by default when Twitter is on; real-time momentum tweets can be re-enabled via a dedicated flag.
 - **Optional Auto-Trade:** Experimental hook can prepare Aerodrome ↔ Uniswap swaps when enabled.
 - **On-Chain Price Validation:** Optionally cross-check DexScreener quotes against live pool reserves via an MCP-compatible JSON-RPC endpoint before dispatching alerts.
 
@@ -70,7 +70,9 @@ Base-chain scans are limited to Aerodrome/Uniswap to ensure sufficient depth.
 ./start_simple.sh
 ```
 
-Add `--enable-twitter` when running this profile if you also want tweets; pair it with `--min-tweet-momentum-score` to override the default 6.0 momentum floor.
+Add `--enable-twitter` when running this profile if you also want tweets. Daily Base summaries post automatically at 08:00 UTC when Twitter is enabled; pass `--enable-signal-tweets` if you also want real-time momentum posts. Pair either mode with `--min-tweet-momentum-score` to override the default 6.0 momentum floor.
+
+Need a quieter run? Append `--disable-daily-summary` to skip the scheduled digest (the aggressive launcher exposes the same switch).
 
 ## Data Persistence
 
@@ -156,7 +158,9 @@ pip install -r requirements.txt
         ```
     -   If your Twitter portal only issues Client ID and Client Secret, set `TWITTER_CLIENT_ID` and `TWITTER_CLIENT_ID_SECRET`; the bot will treat them as the consumer key/secret when the legacy names are absent.
     -   Need OAuth 2.0 user tokens? Run `./twitter_oauth2_setup.py` and follow the prompts—this helper spins up a local callback server, exchanges the authorization code, and prints the `access_token` / `refresh_token` you can export before launching the bot.
-    -   Tweets only fire when both Twitter is enabled and the momentum score meets the configurable floor (default 6.0).
+    -   Daily summary tweets run at 08:00 UTC when Twitter is enabled; real-time momentum tweets stay disabled unless you add `--signal-tweets-enabled` (or export `SIGNAL_TWEETS_ENABLED=1`).
+    -   Tweets only fire when the scorer clears the configurable floor (default 6.0).
+    -   Additional toggles: export `DAILY_SUMMARY_ENABLED=0` to suppress the digest, `DAILY_SUMMARY_TWEET_ENABLED=0` to keep it offline while still generating logs, or `SIGNAL_TWEETS_ENABLED=1` to resume real-time posts without editing scripts.
 
 7.  **Trading Private Key (Optional):**
     -   Required only when using `--auto-trade`.
@@ -191,6 +195,9 @@ python main.py --chain base --token AERO --telegram-enabled --scanner-enabled
 -   `--min-profit`: Minimum net USD profit required for multi-leg opportunities (default: 0.0).
 -   `--telegram-enabled`: Enable Telegram notifications.
 -   `--twitter-enabled`: Enable Twitter notifications.
+-   `--signal-tweets-enabled`: Allow real-time momentum tweets (disabled by default).
+-   `--daily-summary-enabled`: Enable the daily Base-chain summary digest (enabled automatically by the launcher scripts).
+-   `--daily-summary-tweet-enabled`: Allow the daily summary job to post on Twitter when Twitter is enabled.
 -   `--min-tweet-momentum-score`: Minimum momentum score required before a tweet is posted (default: 6.0).
 -   `--alert-cooldown`: Cooldown in seconds before re-alerting for the same opportunity (default: 3600).
 -   `--scanner-enabled`: Enable the background arbitrage scanner.

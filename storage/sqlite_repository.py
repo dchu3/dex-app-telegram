@@ -334,6 +334,8 @@ class SQLiteRepository:
         limit: int,
         token: Optional[str],
         direction: Optional[str],
+        chain: Optional[str] = None,
+        since: Optional[datetime] = None,
     ) -> list[dict]:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
@@ -342,6 +344,8 @@ class SQLiteRepository:
             limit,
             token.upper() if token else None,
             direction,
+            chain,
+            since,
         )
 
     def _fetch_momentum_records_sync(
@@ -349,6 +353,8 @@ class SQLiteRepository:
         limit: int,
         token: Optional[str],
         direction: Optional[str],
+        chain: Optional[str],
+        since: Optional[datetime],
     ) -> list[dict]:
         query = """
             SELECT
@@ -369,14 +375,27 @@ class SQLiteRepository:
             LEFT JOIN momentum_snapshot ms ON ms.alert_id = oa.id
             WHERE (? IS NULL OR oa.token = ?)
               AND (? IS NULL OR oa.direction = ?)
+              AND (? IS NULL OR oa.chain = ?)
+              AND (? IS NULL OR oa.alert_sent_at >= ?)
             ORDER BY oa.alert_sent_at DESC
             LIMIT ?
         """
+        since_iso = since.strftime(ISO_FORMAT) if since else None
         with self._lock:
             cursor = self._connection.cursor()
             cursor.execute(
                 query,
-                (token, token, direction, direction, limit),
+                (
+                    token,
+                    token,
+                    direction,
+                    direction,
+                    chain,
+                    chain,
+                    since_iso,
+                    since_iso,
+                    limit,
+                ),
             )
             rows = cursor.fetchall()
             cursor.close()
