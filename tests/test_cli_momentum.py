@@ -11,7 +11,7 @@ class FakeRepository:
     def __init__(self):
         pass
 
-    async def fetch_momentum_records(self, *, limit, token, direction):
+    async def fetch_momentum_records(self, *, limit, token, direction, chain=None, since=None):
         return [
             {
                 "alert_time": datetime(2024, 1, 1, 12, 0, 0),

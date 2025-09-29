@@ -57,6 +57,9 @@ class AppConfig(NamedTuple):
     onchain_validation_rpc_url: str | None
     onchain_validation_max_pct_diff: float
     onchain_validation_timeout: float
+    daily_summary_enabled: bool = False
+    daily_summary_tweet_enabled: bool = False
+    signal_tweets_enabled: bool = False
 
 
 def load_config() -> AppConfig:
@@ -92,6 +95,9 @@ def load_config() -> AppConfig:
     parser.add_argument('--onchain-validation-rpc-url', type=str, help='Override MCP RPC endpoint for on-chain validation (fallback to ONCHAIN_VALIDATION_RPC_URL env var).')
     parser.add_argument('--onchain-validation-max-diff', type=float, default=constants.ONCHAIN_VALIDATION_DEFAULT_MAX_DIFF_PCT, help='Maximum allowed percentage difference between API price and on-chain price before rejecting (default: %(default)s).')
     parser.add_argument('--onchain-validation-timeout', type=float, default=constants.ONCHAIN_VALIDATION_DEFAULT_TIMEOUT, help='Timeout in seconds for MCP RPC calls (default: %(default)s).')
+    parser.add_argument('--daily-summary-enabled', action='store_true', help='Enable the daily Base chain summary digest.')
+    parser.add_argument('--daily-summary-tweet-enabled', action='store_true', help='Allow the daily summary job to send a Twitter update when summaries are generated.')
+    parser.add_argument('--signal-tweets-enabled', action='store_true', help='Enable real-time momentum signal tweets (default: disabled).')
 
     # --- Multi-Leg Arguments ---
     parser.add_argument('--multi-leg', action='store_true', help='Enable multi-leg (triangular) arbitrage scanning.')
@@ -118,7 +124,7 @@ def load_config() -> AppConfig:
     telegram_bot_token = os.environ.get(constants.TELEGRAM_BOT_TOKEN_ENV_VAR)
     telegram_chat_id = os.environ.get(constants.TELEGRAM_CHAT_ID_ENV_VAR)
     coingecko_api_key = os.environ.get(constants.COINGECKO_API_KEY_ENV_VAR)
-    onchain_validation_rpc_url = args.onchain_validation_rpc_url or os.environ.get(constants.ONCHAIN_VALIDATION_RPC_URL_ENV_VAR)
+    onchain_validation_rpc_url = getattr(args, 'onchain_validation_rpc_url', None) or os.environ.get(constants.ONCHAIN_VALIDATION_RPC_URL_ENV_VAR)
     gemini_api_key = os.environ.get("GEMINI_API_KEY")
     twitter_api_key = os.environ.get(constants.TWITTER_API_KEY_ENV_VAR)
     twitter_api_secret = os.environ.get(constants.TWITTER_API_SECRET_ENV_VAR)
@@ -138,6 +144,21 @@ def load_config() -> AppConfig:
     ai_analysis_enabled = not args.disable_ai_analysis
     if ai_analysis_env is not None:
         ai_analysis_enabled = ai_analysis_env.lower() not in {"0", "false", "no", "off"}
+
+    daily_summary_env = os.environ.get(constants.DAILY_SUMMARY_ENABLED_ENV_VAR)
+    daily_summary_enabled = getattr(args, 'daily_summary_enabled', False)
+    if daily_summary_env is not None:
+        daily_summary_enabled = daily_summary_env.lower() not in {"0", "false", "no", "off"}
+
+    daily_summary_tweet_env = os.environ.get(constants.DAILY_SUMMARY_TWEET_ENV_VAR)
+    daily_summary_tweet_enabled = getattr(args, 'daily_summary_tweet_enabled', False)
+    if daily_summary_tweet_env is not None:
+        daily_summary_tweet_enabled = daily_summary_tweet_env.lower() not in {"0", "false", "no", "off"}
+
+    signal_tweets_env = os.environ.get(constants.SIGNAL_TWEETS_ENABLED_ENV_VAR)
+    signal_tweets_enabled = getattr(args, 'signal_tweets_enabled', False)
+    if signal_tweets_env is not None:
+        signal_tweets_enabled = signal_tweets_env.lower() not in {"0", "false", "no", "off"}
 
     if not etherscan_api_key and not args.show_momentum:
         print(f"{constants.C_RED}{constants.ETHERSCAN_API_KEY_ENV_VAR} environment variable not set. Get it from https://etherscan.io/apis{constants.C_RESET}")
@@ -224,8 +245,11 @@ def load_config() -> AppConfig:
         trade_wallet_address=args.trade_wallet_address,
         trade_max_slippage=args.trade_max_slippage,
         trading_private_key=trading_private_key,
-        onchain_validation_enabled=args.enable_onchain_validation,
+        onchain_validation_enabled=getattr(args, 'enable_onchain_validation', False),
         onchain_validation_rpc_url=onchain_validation_rpc_url,
-        onchain_validation_max_pct_diff=args.onchain_validation_max_diff,
-        onchain_validation_timeout=args.onchain_validation_timeout,
+        onchain_validation_max_pct_diff=getattr(args, 'onchain_validation_max_diff', constants.ONCHAIN_VALIDATION_DEFAULT_MAX_DIFF_PCT),
+        onchain_validation_timeout=getattr(args, 'onchain_validation_timeout', constants.ONCHAIN_VALIDATION_DEFAULT_TIMEOUT),
+        daily_summary_enabled=daily_summary_enabled,
+        daily_summary_tweet_enabled=daily_summary_tweet_enabled,
+        signal_tweets_enabled=signal_tweets_enabled,
     )

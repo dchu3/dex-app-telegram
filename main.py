@@ -2,9 +2,9 @@
 import asyncio
 import aiohttp
 import time
-from datetime import datetime
+from datetime import datetime, time as dt_time, timezone
 from telegram import BotCommand
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram.error import TimedOut, TelegramError
 
 import constants
@@ -21,11 +21,13 @@ from services.dexscreener_client import DexScreenerClient
 from services.etherscan_client import EtherscanClient
 from services.coingecko_client import CoinGeckoClient
 from services.blockscout_client import BlockscoutClient
+from services.geckoterminal_client import GeckoTerminalClient
 from services.gemini_client import GeminiClient
 from services.twitter_client import TwitterClient
 from services.trade_executor import TradeExecutor
 from services.onchain_price_validator import OnChainPriceValidator
 from storage import SQLiteRepository
+from reports.base_daily_summary import BaseDailySummaryBuilder
 
 async def post_init_hook(application: Application) -> None:
     """A hook that runs after the bot is initialized to set up shared clients and tasks."""
@@ -40,6 +42,7 @@ async def post_init_hook(application: Application) -> None:
     application.bot_data['dexscreener_client'] = DexScreenerClient(session, coingecko_client)
     application.bot_data['etherscan_client'] = EtherscanClient(session, config.etherscan_api_key)
     application.bot_data['blockscout_client'] = BlockscoutClient(session)
+    application.bot_data['geckoterminal_client'] = GeckoTerminalClient(session)
     gemini_client = None
     if config.ai_analysis_enabled and config.gemini_api_key:
         gemini_client = GeminiClient(session, config.gemini_api_key)
@@ -109,6 +112,29 @@ async def post_init_hook(application: Application) -> None:
             f" Continuing startup without updating commands.{constants.C_RESET}"
         )
 
+    # Prepare daily summary builder & schedule
+    if config.daily_summary_enabled:
+        repository = application.bot_data.get('repository')
+        geckoterminal_client = application.bot_data.get('geckoterminal_client')
+        if repository and geckoterminal_client:
+            summary_builder = BaseDailySummaryBuilder(
+                repository=repository,
+                geckoterminal_client=geckoterminal_client,
+                coingecko_client=coingecko_client,
+            )
+            application.bot_data['base_daily_summary_builder'] = summary_builder
+            application.bot_data['daily_summary_tweet_enabled'] = config.daily_summary_tweet_enabled
+            if application.job_queue:
+                application.job_queue.run_daily(
+                    run_base_daily_summary,
+                    time=dt_time(hour=8, minute=0, tzinfo=timezone.utc),
+                    name="base-daily-summary",
+                )
+        else:
+            print(
+                f"{constants.C_YELLOW}Daily summary enabled but repository or GeckoTerminal client missing; skipping schedule.{constants.C_RESET}"
+            )
+
     # Start scanner task if enabled
     if config.scanner_enabled:
         scanner = ArbitrageScanner(
@@ -138,6 +164,45 @@ async def post_shutdown_hook(application: Application) -> None:
     executor = application.bot_data.get('trade_executor')
     if executor:
         await executor.close()
+
+
+async def run_base_daily_summary(context: ContextTypes.DEFAULT_TYPE) -> None:
+    application = context.application
+    config = application.bot_data.get('config')
+    builder: BaseDailySummaryBuilder | None = application.bot_data.get('base_daily_summary_builder')
+    if not builder or not config:
+        return
+
+    try:
+        result = await builder.build()
+    except Exception as exc:  # pragma: no cover - defensive logging
+        print(f"{constants.C_RED}Daily summary generation failed: {exc}{constants.C_RESET}")
+        return
+
+    if not result.has_content:
+        print("Daily summary skipped: no qualifying Base momentum records in the last 24h.")
+        return
+
+    tweet_text = result.tweet_text
+    if not tweet_text:
+        return
+
+    twitter_client: TwitterClient | None = application.bot_data.get('twitter_client')
+    tweet_enabled = (
+        config.twitter_enabled
+        and config.daily_summary_tweet_enabled
+        and twitter_client is not None
+        and application.bot_data.get('daily_summary_tweet_enabled', False)
+    )
+
+    if tweet_enabled:
+        try:
+            twitter_client.post_tweet(tweet_text)
+            print(f"{constants.C_GREEN}Daily Base summary tweet sent at {datetime.now(timezone.utc).isoformat()}{constants.C_RESET}")
+        except Exception as exc:  # pragma: no cover - network dependent
+            print(f"{constants.C_RED}Failed to post daily summary tweet: {exc}{constants.C_RESET}")
+    else:
+        print("Daily summary tweet ready (disabled):\n" + tweet_text)
 
 def main() -> None:
     """The main synchronous entry point for the application."""

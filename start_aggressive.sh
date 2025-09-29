@@ -22,6 +22,8 @@ source venv/bin/activate
 INTEGRATION_TEST=false
 NO_AI=false
 ENABLE_TWITTER=false
+ENABLE_SIGNAL_TWEETS=false
+ENABLE_DAILY_SUMMARY=true
 ENABLE_ONCHAIN=false
 ONCHAIN_RPC_URL=""
 
@@ -38,6 +40,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --disable-twitter)
       ENABLE_TWITTER=false
+      ;;
+    --enable-signal-tweets)
+      ENABLE_SIGNAL_TWEETS=true
+      ;;
+    --disable-daily-summary)
+      ENABLE_DAILY_SUMMARY=false
       ;;
     --enable-onchain-validation)
       ENABLE_ONCHAIN=true
@@ -80,8 +88,23 @@ if [[ "$NO_AI" == true ]]; then
   EXTRA_FLAGS+=("--disable-ai-analysis")
 fi
 
+if [[ "$ENABLE_DAILY_SUMMARY" == true ]]; then
+  EXTRA_FLAGS+=("--daily-summary-enabled")
+fi
+
 if [[ "$ENABLE_TWITTER" == true ]]; then
   EXTRA_FLAGS+=("--twitter-enabled")
+  if [[ "$ENABLE_DAILY_SUMMARY" == true ]]; then
+    EXTRA_FLAGS+=("--daily-summary-tweet-enabled")
+  fi
+  if [[ "$ENABLE_SIGNAL_TWEETS" == true ]]; then
+    EXTRA_FLAGS+=("--signal-tweets-enabled")
+  fi
+else
+  if [[ "$ENABLE_SIGNAL_TWEETS" == true ]]; then
+    echo "⚠️  Signal tweets require Twitter to be enabled; ignoring --enable-signal-tweets." >&2
+  fi
+  echo "ℹ️  Twitter disabled; no social posts will be attempted."
 fi
 
 if [[ "$ENABLE_ONCHAIN" == true ]]; then
@@ -95,7 +118,7 @@ fi
 echo "🚀 Starting DEX Momentum Signal Bot (aggressive mode)..."
 python main.py \
   --chain base \
-  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH  AAVE PENDLE \
+  --token BRETT ZORA VIRTUAL AERO AVNT CBBTC WETH  AAVE PENDLE BSX KTA GONNER DINO RFG PENGUIN TAIRO BENJI KAITO ICNT XTTA UMI BASTR ESX AMETA OMI PERPS PACA SQD GLORIA MY DCAI \
   --scanner-enabled \
   --telegram-enabled \
   --trade-volume 250 \
